@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html class="no-js" lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My Portfolio</title>
+	<link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+	<link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700,900" rel="stylesheet">
+    <link rel="stylesheet" href="libs/font-awesome/css/font-awesome.min.css">
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/styles.css" rel="stylesheet">
+</head>
+
+<body>
+    <div id="mobile-menu-open" class="shadow-large">
+        <i class="fa fa-bars" aria-hidden="true"></i>
+    </div>
+    <!-- End #mobile-menu-toggle -->
+    <header>
+        <div id="mobile-menu-close">
+            <span>Close</span> <i class="fa fa-times" aria-hidden="true"></i>
+        </div>
+        <ul id="menu" class="shadow">
+            <li>
+                <a href="#about">About</a>
+            </li>
+            <li>
+                <a href="#experience">Experience</a>
+            </li>
+            <li>
+                <a href="#skills">Skills</a>
+            </li>
+            <li>
+                <a href="#projects">Projects</a>
+            </li>
+        </ul>
+    </header>
+    <!-- End header -->
+
+    <div id="lead">
+        <div id="lead-content">
+            <h1>Parker Miller</h1>
+            <h2>Software Engineer</h2>
+            <div class="social-top">
+              <ul>
+                  <li>
+                      <a href="https://github.com/parkm" target="_blank"><i class="fa fa-github" aria-hidden="true"></i></a>
+                  </li>
+                  <li>
+                      <a href="https://linkedin.com/in/parker-miller-381ab3196/" target="_blank"><i class="fa fa-linkedin" aria-hidden="true"></i></a>
+                  </li>
+              </ul>
+          </div>
+        </div>
+        <!-- End #lead-content -->
+
+        <div id="lead-overlay"></div>
+
+        <div id="lead-down">
+            <span>
+                <i class="fa fa-chevron-down" aria-hidden="true"></i>
+            </span>
+        </div>
+        <!-- End #lead-down -->
+    </div>
+    <!-- End #lead -->
+
+    <div id="about">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4">
+                    <h2 class="heading">About Me</h2>
+                </div>
+                <div class="col-md-8">
+                    <p>
+                        I'm a software engineer currently working at Instructure. I like to create niche but useful tools for myself and others.
+                        I also dabble in music production and game development.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- End #about -->
+
+    <div id="experience" class="background-alt">
+        <h2 class="heading">Experience</h2>
+        <div id="experience-timeline">
+            <div data-date="June 2017 – Present">
+                <h3>Instructure</h3>
+                <h4>Software Engineer</h4>
+                <p>
+                  Developing Canvas LTIs and web applications using Ruby on Rails, PostgreSQL, JavaScript, Docker, React, and Redux.
+                </p>
+            </div>
+
+            <div data-date="July 2016 – June 2017">
+                <h3>Instructure</h3>
+                <h4>L1 Support Engineer</h4>
+                <p>
+                  Assisted users with Canvas questions/issues via chat and phone. Developed pfollowup, a support tool that allows our agents to quickly send detailed followups via Salesforce.
+                </p>
+            </div>
+        </div>
+    </div>
+    <!-- End #experience -->
+
+    <div id="skills">
+        <h2 class="heading">Skills</h2>
+        <ul>
+            <li>Ruby</li>
+            <li>Ruby on Rails</li>
+            <li>Node.js</li>
+            <li>JavaScript</li>
+            <li>React</li>
+            <li>Redux</li>
+            <li>PostgreSQL</li>
+            <li>Java</li>
+            <li>C#</li>
+            <li>Docker</li>
+            <li>Python</li>
+            <li>Unity</li>
+        </ul>
+    </div>
+    <!-- End #skills -->
+
+    <div id="projects" class="background-alt">
+        <h2 class="heading">Projects</h2>
+        <div class="container">
+            <div class="row">
+                <div class="project shadow-large">
+                    <div class="project-image">
+                        <img src="https://www.mapeditor.org/img/tiled-logo-white.png" width="300" height="300" />
+                    </div>
+                    <!-- End .project-image -->
+                    <div class="project-info">
+                        <h3>Tiled</h3>
+                        <p>
+                            I've made contributions to Tiled, a popular map editor. I added multiple property editing which has saved me tons of time in my Tiled workflow.
+                        </p>
+                        <a href="https://github.com/parkm/tiled/commits/master" target="_blank">View Project</a>
+                    </div>
+                    <!-- End .project-info -->
+                </div>
+                <!-- End .project -->
+
+                <div class="project shadow-large">
+                    <div class="project-image">
+                        <img src="images/sprite-sheet-slicer.jpg" class="center-img" />
+                    </div>
+                    <!-- End .project-image -->
+                    <div class="project-info">
+                        <h3>Sprite Sheet Slicer</h3>
+                        <p>
+                            An app made with Python that automatically slices sprites given an image. This functionality is built into Unity now, so not much use for this in my personal projects. However I learned a lot with this project, and it was a lot of fun.
+                        </p>
+                        <a href="https://github.com/parkm/sprite-sheet-slicer" target="_blank">View Project</a>
+                    </div>
+                    <!-- End .project-info -->
+                </div>
+                <!-- End .project -->
+
+                <div class="project shadow-large">
+                    <div class="project-image">
+                        <img src="images/partygif.jpg" class="center-img" />
+                    </div>
+                    <!-- End .project-image -->
+                    <div class="project-info">
+                        <h3>Party GIF</h3>
+                        <p>
+                          Turns any image into a party gif. Can be customized to create any other type of colorful gif. Great for Slack emojis!
+                        </p>
+                        <a href="https://github.com/parkm/partygif" target="_blank">View Project</a>
+                    </div>
+                    <!-- End .project-info -->
+                </div>
+                <!-- End .project -->
+
+                <div class="project shadow-large">
+                    <div class="project-image">
+                        <img src="images/bubblepopmania.jpg"/>
+                    </div>
+                    <!-- End .project-image -->
+                    <div class="project-info">
+                        <h3>Bubble Pop Mania</h3>
+                        <p>
+                          Bubble Pop Mania was an <a href="https://www.newgrounds.com/portal/view/596665" target="_blank">old flash game I made for Newgrounds.</a> This is a remake made with Unity.
+                        </p>
+                        <a href="unity/bpm" target="_blank">View Project</a>
+                    </div>
+                    <!-- End .project-info -->
+                </div>
+                <!-- End .project -->
+            </div>
+        </div>
+    </div>
+    <!-- End #projects -->
+
+    <footer>
+        <div class="container">
+            <div class="row">
+                <div class="col-sm-5 copyright">
+                    <p>
+                    </p>
+                </div>
+                <div class="col-sm-2 top">
+                    <span id="to-top">
+                        <i class="fa fa-chevron-up" aria-hidden="true"></i>
+                    </span>
+                </div>
+                <div class="col-sm-5 social">
+                    <ul>
+                      <li>
+                          <a href="https://github.com/parkm" target="_blank"><i class="fa fa-github" aria-hidden="true"></i></a>
+                      </li>
+                      <li>
+                          <a href="https://linkedin.com/in/parker-miller-381ab3196/" target="_blank"><i class="fa fa-linkedin" aria-hidden="true"></i></a>
+                      </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </footer>
+    <!-- End footer -->
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="js/scripts.min.js"></script>
+</body>
+
+</html>
