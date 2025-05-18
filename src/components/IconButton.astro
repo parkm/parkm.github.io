@@ -1,0 +1,64 @@
+---
+interface Props {
+  href: string;
+}
+
+const { href } = Astro.props;
+---
+
+<a href={href} target="_blank" rel="noopener noreferrer" class="icon-button">
+  <slot />
+</a>
+
+<style>
+  .icon-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    position: relative;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+    box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5),
+                -5px -5px 10px rgba(40, 40, 40, 0.3);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 1;
+    overflow: hidden;
+    color: white;
+    text-decoration: none;
+  }
+
+  .icon-button::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, #ff3e7f, #0ea5e9);
+    opacity: 0;
+    z-index: -1;
+    transition: opacity 0.3s ease;
+  }
+
+  .icon-button:hover {
+    transform: scale(1.15) translateY(-5px);
+    box-shadow: 8px 8px 15px rgba(0, 0, 0, 0.6),
+                -8px -8px 15px rgba(40, 40, 40, 0.4);
+  }
+
+  .icon-button:hover::before {
+    opacity: 1;
+  }
+
+  .icon-button :global(svg) {
+    filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.5));
+    transition: filter 0.3s ease, transform 0.3s ease;
+  }
+
+  .icon-button:hover :global(svg) {
+    filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.8));
+    transform: scale(1.1);
+  }
+</style>

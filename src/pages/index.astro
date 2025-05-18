@@ -32,24 +32,24 @@ const projects: {
 ---
 
 <Layout title={`${personalInfo.name} - Front-end Developer`}>
-  <div class="hero-section">
+  <header class="hero-section">
     <GameOfLife />
     <div class="hero-backdrop">
       <div class="hero-content">
-        <header>
+        <div class="hero-header">
           <div>
-            <h1>{personalInfo.name}</h1>
-            <span>Front-end Developer</span>
+            <h1><a href={personalInfo.github} class="name-link">{personalInfo.name}</a></h1>
+            <a href={personalInfo.linkedin} class="job-title-link">Front-end Developer</a>
           </div>
           <div class="flex items-center gap-4">
-            <GithubIcon href={personalInfo.github} width={32} height={32} />
-            <LinkedinIcon href={personalInfo.linkedin} width={32} height={32} />
+              <GithubIcon href={personalInfo.github} width={32} height={32} />
+              <LinkedinIcon href={personalInfo.linkedin} width={32} height={32} />
           </div>
-        </header>
+        </div>
       </div>
     </div>
     <SettingsMenu />
-  </div>
+  </header>
 
   <main>
     <section aria-labelledby="about-me" class="fade-in-section">
@@ -73,8 +73,8 @@ const projects: {
       </div>
     </section>
 
-    <section aria-labelledby="projects" class="fade-in-section">
-      <h2 id="projects">Work Experience</h2>
+    <section aria-labelledby="work-experience" class="fade-in-section">
+      <h2 id="work-experience">Work Experience</h2>
       <div class="flex flex-col gap-16 mt-8">
         <section aria-labelledby="canopy" class="flex flex-col gap-8">
           <CanopyLogo fill="white" height="4rem" />
@@ -100,7 +100,8 @@ Additionally, contributed to key infrastructure initiatives, including implement
             using Ruby on Rails, PostgreSQL, and React.
           </p>
         </section>
-        <section aria-labelledby="projects" class="project-grid">
+        <section aria-labelledby="personal-projects" class="project-grid">
+          <h3 id="personal-projects" class="sr-only">Personal Projects</h3>
           {
             projects.map((project) => (
               <ProjectCard
@@ -170,7 +171,7 @@ Additionally, contributed to key infrastructure initiatives, including implement
     height: 100%;
   }
 
-  .hero-content header {
+  .hero-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -192,6 +193,19 @@ Additionally, contributed to key infrastructure initiatives, including implement
   .hero-content p {
     font-size: 1rem;
     text-shadow: black 3px 3px;
+  }
+
+  .name-link, .job-title-link {
+    text-decoration: none;
+    color: inherit;
+    display: inline-block;
+    position: relative;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .name-link:hover, .job-title-link:hover {
+    opacity: 0.85;
+    transform: translateY(-1px);
   }
 
   .hero-section {
@@ -242,9 +256,13 @@ Additionally, contributed to key infrastructure initiatives, including implement
   .intro-card {
     background: rgba(var(--accent-light), 0.1);
     border: 1px solid var(--border-color);
-    padding: 1.5rem;
     border-radius: 8px;
     margin-bottom: 2rem;
+    overflow: hidden;
+  }
+
+  .intro-card p {
+    padding: 1.5rem 1.5rem 0;
   }
 
   .social-links {
@@ -252,14 +270,18 @@ Additionally, contributed to key infrastructure initiatives, including implement
     justify-content: center;
     gap: 1rem;
     list-style: none;
-    padding: 0;
-    margin-top: 1rem;
-    color: rgb(var(--accent-light));
+    padding: 1rem 0;
+    margin-top: 1.5rem;
+    background: rgb(0 0 0 / 23%);
+    border-top: 1px solid var(--border-color);
   }
 
-  .social-links :hover {
-    transform: scale(1.1);
-    transition: transform 0.15s ease;
+  .social-links li {
+    transition: transform 0.2s ease;
+  }
+
+  .social-links li:hover {
+    transform: translateY(-2px);
   }
 
   .project-grid {
