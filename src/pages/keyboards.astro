@@ -1,0 +1,8 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { Keyboards as KeyboardsComponent } from "../components/Keyboards/Keyboards.tsx";
+---
+
+<Layout title="Keyboards">
+  <KeyboardsComponent client:only="react" />
+</Layout>
