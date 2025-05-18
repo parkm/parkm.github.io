@@ -1,5 +1,5 @@
-import { CRTFilter, GlowFilter } from 'pixi-filters';
-import { Application, Graphics, Color } from 'pixi.js';
+import { CRTFilter, GlowFilter } from "pixi-filters";
+import { Application, Graphics, Color } from "pixi.js";
 
 export class GameOfLife {
   private app: Application;
@@ -43,7 +43,7 @@ export class GameOfLife {
 
     this.resize();
 
-    this.glowFilter.color = new Color('#ffffff').toNumber();
+    this.glowFilter.color = new Color("#ffffff").toNumber();
     this.glowFilter.outerStrength = 2;
     this.glowFilter.innerStrength = 1;
 
@@ -64,7 +64,7 @@ export class GameOfLife {
 
   private createGrid(): boolean[][] {
     return Array.from({ length: this.cols }, () =>
-      Array.from({ length: this.rows }, () => Math.random() > 0.8)
+      Array.from({ length: this.rows }, () => Math.random() > 0.8),
     );
   }
 
@@ -77,7 +77,7 @@ export class GameOfLife {
     if (currentTime - this.lastUpdateTime > this.updateInterval) {
       this.nextGeneration();
       if (!this.highPerformanceMode) {
-        this.draw()
+        this.draw();
       }
       this.lastUpdateTime = currentTime;
     }
@@ -125,14 +125,24 @@ export class GameOfLife {
 
     for (let y = 0; y < this.rows; y++) {
       // Calculate hue for this row, offsetting by the current hue
-      const rowHue = (this.currentHue + (y * hueStep)) % 360;
+      const rowHue = (this.currentHue + y * hueStep) % 360;
       const rgb = this.hsvToRgb(rowHue, 1, 0.8); // Reduced brightness for better visibility
-      const cellColor = new Color({r: rgb[0], g: rgb[1], b: rgb[2]}).toNumber();
+      const cellColor = new Color({
+        r: rgb[0],
+        g: rgb[1],
+        b: rgb[2],
+      }).toNumber();
 
       for (let x = 0; x < this.cols; x++) {
         if (this.grid[x][y]) {
-          this.graphics.fill({ color: cellColor })
-            .rect(x * this.cellSize, y * this.cellSize, this.cellSize, this.cellSize);
+          this.graphics
+            .fill({ color: cellColor })
+            .rect(
+              x * this.cellSize,
+              y * this.cellSize,
+              this.cellSize,
+              this.cellSize,
+            );
         }
       }
     }
@@ -196,13 +206,26 @@ export class GameOfLife {
     const t = v * (1 - (1 - f) * s);
 
     switch (i % 6) {
-      case 0: [r, g, b] = [v, t, p]; break;
-      case 1: [r, g, b] = [q, v, p]; break;
-      case 2: [r, g, b] = [p, v, t]; break;
-      case 3: [r, g, b] = [p, q, v]; break;
-      case 4: [r, g, b] = [t, p, v]; break;
-      case 5: [r, g, b] = [v, p, q]; break;
-      default: [r, g, b] = [0, 0, 0];
+      case 0:
+        [r, g, b] = [v, t, p];
+        break;
+      case 1:
+        [r, g, b] = [q, v, p];
+        break;
+      case 2:
+        [r, g, b] = [p, v, t];
+        break;
+      case 3:
+        [r, g, b] = [p, q, v];
+        break;
+      case 4:
+        [r, g, b] = [t, p, v];
+        break;
+      case 5:
+        [r, g, b] = [v, p, q];
+        break;
+      default:
+        [r, g, b] = [0, 0, 0];
     }
 
     return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
