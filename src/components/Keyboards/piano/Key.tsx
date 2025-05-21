@@ -9,8 +9,10 @@ interface KeyProps {
   height: number;
   left: number;
   isActive: boolean;
+  isMarked: boolean;
   onKeyDown: () => void;
   onKeyUp: () => void;
+  onClick: () => void;
 }
 
 export function Key({
@@ -21,14 +23,17 @@ export function Key({
   height,
   left,
   isActive,
+  isMarked,
   onKeyDown,
   onKeyUp,
+  onClick,
 }: KeyProps) {
   const noteId = `${note}${octave}`;
 
   const handleMouseDown = () => {
     onKeyDown();
     playNote(note, octave);
+    onClick();
   };
   const handleMouseUp = () => {
     onKeyUp();
@@ -48,13 +53,17 @@ export function Key({
     position: "absolute",
     left,
     top: isWhite ? undefined : 0,
-    background: isWhite
-      ? isActive
-        ? "#e6e6e6"
-        : "#fff"
-      : isActive
-        ? "#444"
-        : "#111",
+    background: isMarked
+      ? isWhite
+        ? "#a0c4ff"
+        : "#6082b6"
+      : isWhite
+        ? isActive
+          ? "#e6e6e6"
+          : "#fff"
+        : isActive
+          ? "#444"
+          : "#111",
     border: isWhite ? "1px solid #bbb" : "1px solid #000",
     borderTopWidth: 1,
     borderBottomLeftRadius: isWhite ? 4 : 3,
@@ -69,7 +78,7 @@ export function Key({
     display: "flex",
     alignItems: "flex-end",
     justifyContent: "center",
-    paddingBottom: 8,
+    paddingBottom: 4,
     userSelect: "none",
     zIndex: isWhite ? 1 : 2,
     transition: "background-color 0.05s",
@@ -77,7 +86,12 @@ export function Key({
 
   return (
     <div
-      className={type + "-key" + (isActive ? " active" : "")}
+      className={
+        type +
+        "-key" +
+        (isActive ? " active" : "") +
+        (isMarked ? " marked" : "")
+      }
       style={style}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
@@ -85,16 +99,16 @@ export function Key({
     >
       {isWhite ? (
         <span
-          className="text-xs text-gray-400 font-medium"
-          style={{ marginBottom: 4 }}
+          className="text-[9px] text-gray-800 font-medium"
+          style={{ marginBottom: 2 }}
         >
           {note}
           {octave}
         </span>
       ) : (
         <span
-          className="text-xs font-medium"
-          style={{ marginBottom: 4, color: "rgba(255,255,255,0.6)" }}
+          className="text-[8px] font-medium text-gray-200"
+          style={{ marginBottom: 2 }}
         >
           {note.length > 1 ? note : null}
         </span>

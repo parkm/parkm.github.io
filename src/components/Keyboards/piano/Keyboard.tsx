@@ -4,12 +4,19 @@ import { Key } from "./Key";
 export function PianoKeyboard({
   octaves,
   startOctave,
+  markedKeys,
+  onKeyClick,
+  scale = 1.0,
 }: {
   octaves: number;
   startOctave: number;
+  markedKeys: string[];
+  onKeyClick: (key: string) => void;
+  scale?: number;
 }) {
-  const WHITE_KEY_WIDTH = 24;
-  const WHITE_KEY_HEIGHT = WHITE_KEY_WIDTH * 6.5;
+  const BASE_WHITE_KEY_WIDTH = 24;
+  const WHITE_KEY_WIDTH = BASE_WHITE_KEY_WIDTH;
+  const WHITE_KEY_HEIGHT = WHITE_KEY_WIDTH * 6.5 * scale;
   const BLACK_KEY_WIDTH = WHITE_KEY_WIDTH * 0.58;
   const BLACK_KEY_HEIGHT = WHITE_KEY_HEIGHT * 0.63;
   const totalWidth = octaves * 7 * WHITE_KEY_WIDTH + 16;
@@ -66,8 +73,10 @@ export function PianoKeyboard({
           height={WHITE_KEY_HEIGHT}
           left={offset + i * WHITE_KEY_WIDTH}
           isActive={activeKeys.has(id)}
+          isMarked={markedKeys.includes(id)}
           onKeyDown={() => onKeyDown(id)}
           onKeyUp={() => onKeyUp(id)}
+          onClick={() => onKeyClick(id)}
         />,
       );
     });
@@ -84,21 +93,18 @@ export function PianoKeyboard({
           height={BLACK_KEY_HEIGHT}
           left={offset + left * WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2}
           isActive={activeKeys.has(id)}
+          isMarked={markedKeys.includes(id)}
           onKeyDown={() => onKeyDown(id)}
           onKeyUp={() => onKeyUp(id)}
+          onClick={() => onKeyClick(id)}
         />,
       );
     });
   }
 
   return (
-    <div
-      className="piano-container overflow-x-auto py-4"
-      style={{ maxWidth: "100%" }}
-    >
-      <div style={keyboardStyle} className="piano-keyboard">
-        {keys}
-      </div>
+    <div style={keyboardStyle} className="piano-keyboard">
+      {keys}
     </div>
   );
 }
