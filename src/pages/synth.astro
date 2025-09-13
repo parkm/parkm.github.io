@@ -1,0 +1,8 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { Synth as SynthComponent } from "../components/Synth/Synth.tsx";
+---
+
+<Layout title="Synth">
+  <SynthComponent client:only="react" />
+</Layout>
