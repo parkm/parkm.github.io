@@ -1,0 +1,290 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Breathe">
+  <div
+    class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#3b82f6] animate-gradient relative overflow-hidden"
+  >
+    <!-- Breathing Box -->
+    <div class="relative mb-12 z-10">
+      <div
+        id="breathingBox"
+        class="relative w-80 h-80 border-4 border-blue-400/60 bg-blue-900/30 backdrop-blur-md shadow-[0_0_40px_rgba(59,130,246,0.25)] rounded-2xl transition-transform duration-1000 ease-in-out"
+      >
+        <div
+          id="tracer"
+          class="absolute w-4 h-4 bg-blue-300 rounded-full shadow-lg animate-pulse-glow"
+          style="top: -8px; left: -8px;"
+        >
+        </div>
+        <div
+          class="absolute inset-0 flex flex-col items-center justify-center text-center"
+        >
+          <div id="emojiDisplay" class="text-4xl mb-2"></div>
+          <div
+            id="phaseDisplay"
+            class="text-2xl font-medium text-blue-100 mb-4 tracking-wide"
+          >
+            Ready to Begin
+          </div>
+          <div
+            id="countDisplay"
+            class="text-7xl font-extrabold text-sky-300 drop-shadow-glow"
+          >
+            4
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex gap-6 mb-8 z-10">
+      <button
+        id="startBtn"
+        class="px-8 py-4 bg-blue-600/90 text-white font-semibold rounded-xl shadow-md hover:bg-blue-700 transition"
+      >
+        Start
+      </button>
+      <button
+        id="stopBtn"
+        class="px-8 py-4 bg-rose-500/90 text-white font-semibold rounded-xl shadow-md hover:bg-rose-600 transition"
+      >
+        Stop
+      </button>
+    </div>
+    <div
+      id="sliderContainer"
+      class="w-80 bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-[0_0_20px_rgba(59,130,246,0.2)] z-10"
+    >
+      <label
+        for="durationSlider"
+        class="block text-center font-medium text-blue-100 mb-4"
+      >
+        Breath Duration:
+        <span id="durationValue" class="font-bold text-sky-300">4</span>
+        seconds
+      </label>
+      <input
+        id="durationSlider"
+        type="range"
+        min="3"
+        max="8"
+        value="4"
+        class="w-full h-2 bg-white/30 rounded-lg appearance-none cursor-pointer accent-blue-400"
+      />
+    </div>
+  </div>
+
+  <style>
+    /* Background soft shifting animation */
+    @keyframes gradientShift {
+      0% {
+        background-position: 0% 50%;
+      }
+      50% {
+        background-position: 100% 50%;
+      }
+      100% {
+        background-position: 0% 50%;
+      }
+    }
+    .animate-gradient {
+      background-size: 300% 300%;
+      animation: gradientShift 50s ease-in-out infinite;
+    }
+
+    /* Pulsating glow for tracer */
+    @keyframes pulseGlow {
+      0%,
+      100% {
+        box-shadow:
+          0 0 10px rgba(147, 197, 253, 0.6),
+          0 0 20px rgba(59, 130, 246, 0.5);
+      }
+      50% {
+        box-shadow:
+          0 0 22px rgba(147, 197, 253, 0.8),
+          0 0 35px rgba(59, 130, 246, 0.6);
+      }
+    }
+    .animate-pulse-glow {
+      animation: pulseGlow 6s ease-in-out infinite;
+    }
+
+    .drop-shadow-glow {
+      text-shadow:
+        0 0 14px rgba(147, 197, 253, 0.5),
+        0 0 24px rgba(59, 130, 246, 0.4);
+    }
+
+    #durationSlider::-webkit-slider-thumb,
+    #durationSlider::-moz-range-thumb {
+      appearance: none;
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background: #3b82f6;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+      border: none;
+      transition: all 0.3s ease;
+    }
+    #durationSlider::-webkit-slider-thumb:hover,
+    #durationSlider::-moz-range-thumb:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 18px rgba(59, 130, 246, 0.8);
+    }
+  </style>
+
+  <script is:inline>
+    window.addEventListener("DOMContentLoaded", () => {
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const slider = document.getElementById("durationSlider");
+      const phaseDisplay = document.getElementById("phaseDisplay");
+      const emojiDisplay = document.getElementById("emojiDisplay");
+      const countDisplay = document.getElementById("countDisplay");
+      const durationValue = document.getElementById("durationValue");
+      const breathingBox = document.getElementById("breathingBox");
+      const tracer = document.getElementById("tracer");
+      const sliderContainer = document.getElementById("sliderContainer");
+
+      tracer.style.left = "0";
+      tracer.style.top = "0";
+      tracer.style.willChange = "transform";
+
+      let isRunning = false;
+      let animationId = null;
+      let startTime = null;
+      let duration = parseInt(slider.value, 10);
+      let phase = 0;
+      let currentCount = duration;
+
+      const phases = ["Inhale", "Hold", "Exhale", "Hold"];
+      const emojis = ["🫁", "✋", "💨", "✋"];
+
+      // Hidden SVG for path
+      const svgNS = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(svgNS, "svg");
+      svg.setAttribute("width", "0");
+      svg.setAttribute("height", "0");
+      svg.style.position = "absolute";
+      svg.style.pointerEvents = "none";
+      const rect = document.createElementNS(svgNS, "rect");
+      svg.appendChild(rect);
+      breathingBox.appendChild(svg);
+
+      let totalLength = 0;
+
+      function rebuildPath() {
+        const cs = getComputedStyle(breathingBox);
+        const w = breathingBox.clientWidth;
+        const h = breathingBox.clientHeight;
+        const bw = parseFloat(cs.borderTopWidth) || 0;
+
+        // offset inward by half border so we hit the center of the visible stroke
+        const inset = bw / 2;
+        const pathW = w + bw; // include both halfs
+        const pathH = h + bw;
+        const r = parseFloat(cs.borderTopLeftRadius) || 0;
+
+        rect.setAttribute("x", -inset);
+        rect.setAttribute("y", -inset);
+        rect.setAttribute("width", pathW);
+        rect.setAttribute("height", pathH);
+        rect.setAttribute("rx", r - inset);
+        rect.setAttribute("ry", r - inset);
+        rect.setAttribute("fill", "none");
+        rect.setAttribute("stroke", "none");
+
+        totalLength = rect.getTotalLength();
+      }
+
+      rebuildPath();
+      window.addEventListener("resize", rebuildPath);
+
+      function updateTracer(progress) {
+        const pt = rect.getPointAtLength(progress * totalLength);
+        const tracerR = 8;
+        tracer.style.transform = `translate3d(${pt.x - tracerR}px, ${pt.y - tracerR}px,0)`;
+      }
+
+      function updateDisplay() {
+        phaseDisplay.textContent = phases[phase];
+        emojiDisplay.textContent = emojis[phase];
+        countDisplay.textContent = Math.ceil(currentCount);
+
+        const colors = [
+          "text-green-400",
+          "text-yellow-400",
+          "text-blue-400",
+          "text-purple-400",
+        ];
+        countDisplay.className = `text-7xl font-extrabold ${colors[phase]}`;
+        breathingBox.style.transform =
+          phase < 2 ? "scale(1.05)" : "scale(0.95)";
+      }
+
+      function start() {
+        if (isRunning) return;
+        isRunning = true;
+        phase = 0;
+        currentCount = duration;
+        sliderContainer.style.display = "none";
+        startBtn.textContent = "Running...";
+        startBtn.disabled = true;
+        startTime = null;
+
+        const cycleDuration = () => duration * 4;
+
+        function animate(ts) {
+          if (!isRunning) return;
+          if (!startTime) startTime = ts;
+          const elapsed = (ts - startTime) / 1000;
+
+          const cd = cycleDuration();
+          const cycleProgress = (elapsed % cd) / cd;
+
+          const phaseProgress = (elapsed % cd) / duration;
+          phase = Math.floor(phaseProgress) % 4;
+          currentCount = duration - (elapsed % duration);
+
+          updateDisplay();
+          updateTracer(cycleProgress);
+
+          animationId = requestAnimationFrame(animate);
+        }
+
+        animationId = requestAnimationFrame(animate);
+      }
+
+      function stop() {
+        cancelAnimationFrame(animationId);
+        isRunning = false;
+        startBtn.textContent = "Start";
+        startBtn.disabled = false;
+        phaseDisplay.textContent = "Ready to Begin";
+        emojiDisplay.textContent = "";
+        countDisplay.textContent = duration;
+        sliderContainer.style.display = "block";
+        updateTracer(0);
+        breathingBox.style.transform = "scale(1)";
+      }
+
+      slider.addEventListener("input", () => {
+        if (!isRunning) {
+          duration = parseInt(slider.value, 10);
+          durationValue.textContent = slider.value;
+          countDisplay.textContent = duration;
+        }
+      });
+
+      startBtn.addEventListener("click", start);
+      stopBtn.addEventListener("click", stop);
+
+      countDisplay.textContent = duration;
+      updateTracer(0);
+    });
+  </script>
+</Layout>
