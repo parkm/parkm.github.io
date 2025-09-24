@@ -10,7 +10,7 @@
     "astro": "astro",
     "prepare": "husky",
     "lint-staged": "lint-staged",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "astro check",
     "eslint": "eslint .",
     "lint": "npm run eslint && npm run typecheck"
   },
@@ -29,6 +29,7 @@
     "**/*": "prettier --write --ignore-unknown"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.4",
     "@eslint/js": "^9.35.0",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",

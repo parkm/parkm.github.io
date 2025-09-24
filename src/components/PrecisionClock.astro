@@ -1,0 +1,203 @@
+---
+export interface Props {
+  id: string;
+  timezone?: string;
+  showDigital?: boolean;
+}
+
+const { id, timezone, showDigital = true } = Astro.props;
+---
+
+<div id={id} class="flex items-center justify-center w-full">
+  <div
+    class="relative select-none rounded-full"
+    style="width: min(100%, 100vh); height: min(100%, 100vh); aspect-ratio: 1 / 1;"
+    data-clock
+  >
+    <!-- Clock face -->
+    <div
+      class="absolute inset-0 rounded-full bg-gradient-to-b from-white to-gray-100 shadow-lg"
+      style="border-width: max(1px, min(1vw, 8px));"
+      data-face-border
+    >
+    </div>
+
+    <div class="absolute inset-0" data-face></div>
+
+    <!-- Hands -->
+    <div
+      class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom bg-gray-800 rounded-full z-30"
+      style="width: 0.7%; height: 25%;"
+      data-hour
+    >
+    </div>
+    <div
+      class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom bg-gray-600 rounded-full z-40"
+      style="width: 0.5%; height: 35%;"
+      data-minute
+    >
+    </div>
+    <div
+      class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom bg-red-600 rounded-full z-50"
+      style="width: 0.3%; height: 45%;"
+      data-second
+    >
+    </div>
+
+    <!-- Center -->
+    <div
+      class="absolute rounded-full bg-gray-800 shadow-md left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-60"
+      style="width: 3%; height: 3%;"
+    >
+    </div>
+
+    {
+      showDigital && (
+        <div
+          class="absolute left-1/2 top-[75%] -translate-x-1/2 bg-gray-800/90 text-white font-mono rounded-lg shadow"
+          data-digital
+        />
+      )
+    }
+  </div>
+</div>
+
+<script is:inline define:vars={{ id, timezone }}>
+  (function clockInit(clockId, tz) {
+    const root = document.getElementById(clockId);
+    if (!root) return;
+
+    const clock = root.querySelector("[data-clock]");
+    const face = root.querySelector("[data-face]");
+    const faceBorder = root.querySelector("[data-face-border]");
+    const hourHand = root.querySelector("[data-hour]");
+    const minuteHand = root.querySelector("[data-minute]");
+    const secondHand = root.querySelector("[data-second]");
+    const digital = root.querySelector("[data-digital]");
+
+    const getSize = () => clock?.offsetWidth || 300;
+
+    function updateSizing() {
+      const size = getSize();
+
+      if (faceBorder) {
+        const border = Math.max(1, Math.min(size * 0.008, 12));
+        Object.assign(faceBorder.style, {
+          borderWidth: `${border}px`,
+          borderColor: "#1f2937",
+          borderStyle: "solid",
+        });
+      }
+
+      if (digital) {
+        const fontSize = Math.max(10, Math.min(size * 0.04, 24));
+        const pad = Math.max(4, size * 0.02);
+        const radius = Math.max(3, size * 0.015);
+        Object.assign(digital.style, {
+          fontSize: `${fontSize}px`,
+          padding: `${pad * 0.5}px ${pad}px`,
+          borderRadius: `${radius}px`,
+        });
+      }
+    }
+
+    function drawFace() {
+      face.innerHTML = "";
+      const size = getSize();
+      const center = 50,
+        numR = 42,
+        tickR = 48;
+
+      for (let i = 1; i <= 12; i++) {
+        const angle = ((i * 30 - 90) * Math.PI) / 180;
+        const x = center + numR * Math.cos(angle);
+        const y = center + numR * Math.sin(angle);
+
+        const el = document.createElement("div");
+        el.textContent = i;
+        el.className = "absolute text-gray-800 font-bold";
+        el.style.fontSize = `${Math.max(8, Math.min(size * 0.035, 20))}px`;
+        el.style.left = `${x}%`;
+        el.style.top = `${y}%`;
+        el.style.transform = "translate(-50%, -50%)";
+        face.appendChild(el);
+      }
+
+      for (let i = 0; i < 60; i++) {
+        const angle = ((i * 6 - 90) * Math.PI) / 180;
+        const x = center + tickR * Math.cos(angle);
+        const y = center + tickR * Math.sin(angle);
+
+        const tick = document.createElement("div");
+        const isHour = i % 5 === 0;
+        tick.className = "absolute bg-gray-800";
+        tick.style.width = `${isHour ? Math.max(1, size * 0.006) : Math.max(1, size * 0.002)}px`;
+        tick.style.height = `${isHour ? Math.max(2, size * 0.04) : Math.max(1, size * 0.02)}px`;
+        tick.style.left = `${x}%`;
+        tick.style.top = `${y}%`;
+        tick.style.transform = `translate(-50%, -50%) rotate(${i * 6}deg)`;
+        face.appendChild(tick);
+      }
+
+      updateSizing();
+    }
+
+    function now(tz) {
+      if (!tz) return new Date();
+      const now = new Date();
+      const fmt = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        hour12: false,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+      const parts = Object.fromEntries(
+        fmt
+          .formatToParts(now)
+          .filter((p) => p.type !== "literal")
+          .map((p) => [p.type, parseInt(p.value, 10)])
+      );
+      return new Date(
+        parts.year,
+        parts.month - 1,
+        parts.day,
+        parts.hour,
+        parts.minute,
+        parts.second,
+        now.getMilliseconds()
+      );
+    }
+
+    function tick() {
+      const t = now(tz);
+      const s = t.getSeconds() + t.getMilliseconds() / 1000;
+      const m = t.getMinutes() + s / 60;
+      const h = (t.getHours() % 12) + m / 60;
+
+      if (hourHand)
+        hourHand.style.transform = `translateX(-50%) rotate(${h * 30}deg)`;
+      if (minuteHand)
+        minuteHand.style.transform = `translateX(-50%) rotate(${m * 6}deg)`;
+      if (secondHand)
+        secondHand.style.transform = `translateX(-50%) rotate(${s * 6}deg)`;
+
+      if (digital) {
+        const opts = { hour: "2-digit", minute: "2-digit", second: "2-digit" };
+        if (tz) opts.timeZone = tz;
+        digital.textContent = t.toLocaleTimeString("en-US", opts);
+      }
+
+      requestAnimationFrame(tick);
+    }
+
+    drawFace();
+    const resizeObs = new ResizeObserver(drawFace);
+    resizeObs.observe(clock);
+    window.addEventListener("resize", drawFace);
+    tick();
+  })(id, timezone || null);
+</script>

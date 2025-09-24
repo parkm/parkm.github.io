@@ -287,7 +287,7 @@ function releaseNote(noteId: string): void {
 export function stopAllNotes(): void {
   if (!audioContext) return;
 
-  activeNotes.forEach((note, id) => {
+  activeNotes.forEach((_note, id) => {
     releaseNote(id);
   });
 }
