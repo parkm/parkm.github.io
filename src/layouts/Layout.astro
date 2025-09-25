@@ -14,6 +14,24 @@ const viewportContent = disableZoom
 <!doctype html>
 <html lang="en">
 	<head>
+		<script is:inline>
+			(() => {
+			const theme = (() => {
+				try {
+				if (localStorage.theme) return localStorage.theme;
+				} catch {}
+				if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+				return "dark";
+				}
+				return "light";
+			})();
+			if (theme === "dark") {
+				document.documentElement.classList.add("dark");
+			} else {
+				document.documentElement.classList.remove("dark");
+			}
+			})();
+		</script>
 		<meta charset="UTF-8" />
 		<meta name="description" content="Astro description" />
 		<meta name="viewport" content={viewportContent} />
@@ -25,24 +43,6 @@ const viewportContent = disableZoom
 		<slot />
 	</body>
 </html>
-<script is:inline>
-	(() => {
-	  const theme = (() => {
-		try {
-		  if (localStorage.theme) return localStorage.theme;
-		} catch {}
-		if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-		  return "dark";
-		}
-		return "light";
-	  })();
-	  if (theme === "dark") {
-		document.documentElement.classList.add("dark");
-	  } else {
-		document.documentElement.classList.remove("dark");
-	  }
-	})();
-</script>
 <style is:global>
     @import "tailwindcss";
 	@custom-variant dark (&:where(.dark, .dark *));
