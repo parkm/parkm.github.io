@@ -1,0 +1,41 @@
+---
+import IconButton from "./IconButton.astro";
+
+interface Props {
+  id: string;
+}
+const { id } = Astro.props;
+---
+
+<IconButton id={id}>
+  <span id={`${id}-icon`}></span>
+</IconButton>
+
+<script is:inline define:vars={{ id }}>
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById(id);
+    const icon = document.getElementById(id + "-icon");
+
+    function updateIcon() {
+      if (document.documentElement.classList.contains("dark")) {
+        icon.textContent = "🌙";
+      } else {
+        icon.textContent = "🌞";
+      }
+    }
+
+    updateIcon();
+    btn?.addEventListener("click", () => {
+      const root = document.documentElement;
+      if (root.classList.contains("dark")) {
+        root.classList.remove("dark");
+        localStorage.theme = "light";
+      } else {
+        root.classList.add("dark");
+        localStorage.theme = "dark";
+      }
+      updateIcon();
+    });
+  });
+</script>
+

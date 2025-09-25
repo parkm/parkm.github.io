@@ -1,14 +1,26 @@
 ---
 interface Props {
-  href: string;
+  href?: string;
+  id?: string;
 }
 
-const { href } = Astro.props;
+const { href, id } = Astro.props;
 ---
-
-<a href={href} target="_blank" rel="noopener noreferrer" class="icon-button">
-  <slot />
-</a>
+{href ? (
+  <a
+    href={href}
+    target="_blank"
+    rel="noopener noreferrer"
+    class="icon-button"
+    id={id}
+  >
+    <slot />
+  </a>
+) : (
+  <button type="button" class="icon-button" id={id}>
+    <slot />
+  </button>
+)}
 
 <style>
   .icon-button {
@@ -60,5 +72,12 @@ const { href } = Astro.props;
   .icon-button:hover :global(svg) {
     filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.8));
     transform: scale(1.1);
+  }
+
+  button.icon-button:active {
+    transform: scale(1.0);
+  }
+  button.icon-button:active::before {
+    background: linear-gradient(45deg, #8b2245, #0f4760);
   }
 </style>

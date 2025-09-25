@@ -16,9 +16,8 @@ const { id, timezone, showDigital = true } = Astro.props;
   >
     <!-- Clock face -->
     <div
-      class="absolute inset-0 rounded-full bg-gradient-to-b from-white to-gray-100 shadow-lg"
+      class="absolute inset-0 rounded-full bg-gradient-to-b from-white to-gray-100 dark:from-gray-800 dark:to-gray-900 shadow-lg"
       style="border-width: max(1px, min(1vw, 8px));"
-      data-face-border
     >
     </div>
 
@@ -26,13 +25,13 @@ const { id, timezone, showDigital = true } = Astro.props;
 
     <!-- Hands -->
     <div
-      class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom bg-gray-800 rounded-full z-30"
+      class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom bg-gray-800 dark:bg-gray-200 rounded-full z-30"
       style="width: 0.7%; height: 25%;"
       data-hour
     >
     </div>
     <div
-      class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom bg-gray-600 rounded-full z-40"
+      class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom bg-gray-600 dark:bg-gray-300 rounded-full z-40"
       style="width: 0.5%; height: 35%;"
       data-minute
     >
@@ -46,7 +45,7 @@ const { id, timezone, showDigital = true } = Astro.props;
 
     <!-- Center -->
     <div
-      class="absolute rounded-full bg-gray-800 shadow-md left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-60"
+      class="absolute rounded-full bg-gray-800 dark:bg-gray-200 shadow-md left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-60"
       style="width: 3%; height: 3%;"
     >
     </div>
@@ -54,7 +53,7 @@ const { id, timezone, showDigital = true } = Astro.props;
     {
       showDigital && (
         <div
-          class="absolute left-1/2 top-[75%] -translate-x-1/2 bg-gray-800/90 text-white font-mono rounded-lg shadow"
+          class="absolute left-1/2 top-[75%] -translate-x-1/2 bg-gray-800/90 dark:bg-gray-200/90 text-white dark:text-gray-900 font-mono rounded-lg shadow"
           data-digital
         />
       )
@@ -69,7 +68,6 @@ const { id, timezone, showDigital = true } = Astro.props;
 
     const clock = root.querySelector("[data-clock]");
     const face = root.querySelector("[data-face]");
-    const faceBorder = root.querySelector("[data-face-border]");
     const hourHand = root.querySelector("[data-hour]");
     const minuteHand = root.querySelector("[data-minute]");
     const secondHand = root.querySelector("[data-second]");
@@ -79,15 +77,6 @@ const { id, timezone, showDigital = true } = Astro.props;
 
     function updateSizing() {
       const size = getSize();
-
-      if (faceBorder) {
-        const border = Math.max(1, Math.min(size * 0.008, 12));
-        Object.assign(faceBorder.style, {
-          borderWidth: `${border}px`,
-          borderColor: "#1f2937",
-          borderStyle: "solid",
-        });
-      }
 
       if (digital) {
         const fontSize = Math.max(10, Math.min(size * 0.04, 24));
@@ -115,7 +104,7 @@ const { id, timezone, showDigital = true } = Astro.props;
 
         const el = document.createElement("div");
         el.textContent = i;
-        el.className = "absolute text-gray-800 font-bold";
+        el.className = "absolute font-bold text-gray-800 dark:text-gray-100";
         el.style.fontSize = `${Math.max(8, Math.min(size * 0.035, 20))}px`;
         el.style.left = `${x}%`;
         el.style.top = `${y}%`;
@@ -130,7 +119,7 @@ const { id, timezone, showDigital = true } = Astro.props;
 
         const tick = document.createElement("div");
         const isHour = i % 5 === 0;
-        tick.className = "absolute bg-gray-800";
+        tick.className = "absolute bg-gray-800 dark:bg-gray-100";
         tick.style.width = `${isHour ? Math.max(1, size * 0.006) : Math.max(1, size * 0.002)}px`;
         tick.style.height = `${isHour ? Math.max(2, size * 0.04) : Math.max(1, size * 0.02)}px`;
         tick.style.left = `${x}%`;
