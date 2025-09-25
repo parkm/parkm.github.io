@@ -29,6 +29,7 @@ type GameState = {
   cutStartLen: number;
   cutTimer: number;
   safeMode: boolean;
+  touchTarget: Vec2 | null;
 };
 
 function init(canvas: HTMLCanvasElement): GameState {
@@ -56,6 +57,7 @@ function init(canvas: HTMLCanvasElement): GameState {
     cutStartLen: 0,
     cutTimer: 0,
     safeMode: false,
+    touchTarget: null,
   };
 
   spawnPellet(state, 4);
@@ -65,6 +67,7 @@ function init(canvas: HTMLCanvasElement): GameState {
 
 function setupInput(state: GameState) {
   const pressed = new Set<string>();
+  const spawnButton = document.getElementById("spawn-button");
 
   function updateDir() {
     let dx = 0,
@@ -84,6 +87,7 @@ function setupInput(state: GameState) {
     }
   }
 
+  // --- keyboard input ---
   window.addEventListener(
     "keydown",
     (e) => {
@@ -107,6 +111,25 @@ function setupInput(state: GameState) {
 
       if (e.code === "Space") {
         spawnPellet(state, 3 + Math.floor(Math.random() * 3));
+
+        // Visual feedback for spawn button when space is pressed
+        if (spawnButton) {
+          spawnButton.classList.add(
+            "bg-green-600/80",
+            "border-green-400",
+            "scale-95",
+          );
+          spawnButton.classList.remove("bg-black/70", "border-white/30");
+
+          setTimeout(() => {
+            spawnButton.classList.remove(
+              "bg-green-600/80",
+              "border-green-400",
+              "scale-95",
+            );
+            spawnButton.classList.add("bg-black/70", "border-white/30");
+          }, 150);
+        }
       }
       if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
         state.boosting = true;
@@ -124,9 +147,93 @@ function setupInput(state: GameState) {
     }
     updateDir();
   });
+
+  // --- mobile touch input ---
+  state.canvas.addEventListener(
+    "touchstart",
+    (e) => {
+      const t = e.touches[0];
+      state.touchTarget = { x: t.clientX, y: t.clientY };
+      state.boosting = e.touches.length >= 2;
+    },
+    { passive: true },
+  );
+
+  state.canvas.addEventListener(
+    "touchmove",
+    (e) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      state.touchTarget = { x: t.clientX, y: t.clientY };
+      state.boosting = e.touches.length >= 2;
+    },
+    { passive: false },
+  );
+
+  state.canvas.addEventListener(
+    "touchend",
+    (e) => {
+      if (e.touches.length === 0) {
+        // No fingers left stop everything
+        state.boosting = false;
+        state.touchTarget = null;
+      } else {
+        // Update movement target to remaining first touch
+        const t = e.touches[0];
+        state.touchTarget = { x: t.clientX, y: t.clientY };
+        state.boosting = e.touches.length >= 2;
+      }
+    },
+    { passive: true },
+  );
+
+  // --- button input ---
+  if (spawnButton) {
+    const handleSpawn = (e: Event) => {
+      e.preventDefault();
+      spawnPellet(state, 3 + Math.floor(Math.random() * 3));
+
+      // Visual feedback for spawn button
+      spawnButton.classList.add(
+        "bg-green-600/80",
+        "border-green-400",
+        "scale-95",
+      );
+      spawnButton.classList.remove("bg-black/70", "border-white/30");
+
+      setTimeout(() => {
+        spawnButton.classList.remove(
+          "bg-green-600/80",
+          "border-green-400",
+          "scale-95",
+        );
+        spawnButton.classList.add("bg-black/70", "border-white/30");
+      }, 150);
+    };
+
+    spawnButton.addEventListener("click", handleSpawn);
+    spawnButton.addEventListener("touchstart", handleSpawn, { passive: false });
+  }
 }
 
 function update(state: GameState, dt: number) {
+  // if finger is down, move towards it
+  if (state.touchTarget) {
+    const head = state.positions[0];
+    const delta = {
+      x: state.touchTarget.x - head.x,
+      y: state.touchTarget.y - head.y,
+    };
+    const d = norm(delta);
+    if (d.x || d.y) {
+      const { x, y } = state.dir;
+      // prevent exact reversal
+      if (!(d.x === -x && d.y === -y)) {
+        state.dir = d;
+      }
+    }
+  }
+
   const speed =
     BASE_SPEED *
     (state.boosting ? SPEED_MULT : 1) *
@@ -297,7 +404,7 @@ function draw(state: GameState) {
   ctx.fillText(`SCORE: ${state.score.toString().padStart(4, "0")}`, 12, 28);
   ctx.font = "18px monospace";
   ctx.fillStyle = "rgb(180,180,180)";
-  ctx.fillText("SHIFT = Boost   SPACE = Spawn Pellets", 12, canvas.height - 12);
+  ctx.fillText("Boost = Shift | 2 Fingers (Mobile)", 12, canvas.height - 12);
   if (state.cuttingTail) {
     ctx.fillStyle = "red";
     ctx.font = "22px monospace";
