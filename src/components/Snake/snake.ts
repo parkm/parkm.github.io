@@ -1,5 +1,5 @@
 type Vec2 = { x: number; y: number };
-type Pellet = { pos: Vec2; active: boolean };
+type Pellet = { pos: Vec2; active: boolean; fadeInTimer: number };
 type Pop = { pos: Vec2; timer: number; active: boolean };
 
 const MAX_SNAKE_LENGTH = 6400;
@@ -10,9 +10,11 @@ const HEAD_RADIUS = 12;
 const TAIL_RADIUS = 6.5;
 const SELF_HIT_GAP = 6;
 const CUT_DURATION = 0.45;
-const PELLET_RADIUS = 9;
+const PELLET_RADIUS = 14;
 const POP_DURATION = 0.3;
 const MAX_PELLET_POPS = 64;
+const PELLET_SPAWN_INTERVAL = 1.0; // seconds between automatic pellet spawns
+const PELLET_FADE_DURATION = 0.5; // fade in duration (seconds)
 
 type GameState = {
   ctx: CanvasRenderingContext2D;
@@ -30,6 +32,7 @@ type GameState = {
   cutTimer: number;
   safeMode: boolean;
   touchTarget: Vec2 | null;
+  pelletSpawnTimer: number;
 };
 
 function init(canvas: HTMLCanvasElement): GameState {
@@ -56,8 +59,9 @@ function init(canvas: HTMLCanvasElement): GameState {
     cutFrom: -1,
     cutStartLen: 0,
     cutTimer: 0,
-    safeMode: false,
+    safeMode: true,
     touchTarget: null,
+    pelletSpawnTimer: 0,
   };
 
   spawnPellet(state, 4);
@@ -110,7 +114,7 @@ function setupInput(state: GameState) {
       pressed.add(e.code);
 
       if (e.code === "Space") {
-        spawnPellet(state, 3 + Math.floor(Math.random() * 3));
+        spawnPellet(state, 8 + Math.floor(Math.random() * 3));
 
         // Visual feedback for spawn button when space is pressed
         if (spawnButton) {
@@ -318,7 +322,20 @@ function update(state: GameState, dt: number) {
     }
   }
 
-  // Pops
+  state.pelletSpawnTimer += dt;
+  if (state.pelletSpawnTimer >= PELLET_SPAWN_INTERVAL) {
+    state.pelletSpawnTimer = 0;
+    const spawnCount = 1 + Math.floor(Math.random() * 3);
+    spawnPellet(state, spawnCount);
+  }
+
+  // Update fade timers
+  for (const f of state.pellets) {
+    if (f.active && f.fadeInTimer < PELLET_FADE_DURATION) {
+      f.fadeInTimer = Math.min(f.fadeInTimer + dt, PELLET_FADE_DURATION);
+    }
+  }
+
   state.pops.forEach((p) => {
     if (p.active && (p.timer += dt) >= POP_DURATION) p.active = false;
   });
@@ -331,28 +348,39 @@ function draw(state: GameState) {
   ctx.fillStyle = "rgb(12,12,16)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Pellets
+  const hueShift = (performance.now() / 40) % 360;
+  const headHue = hueShift;
+  const pelletHue = (headHue + 180) % 360;
+
   for (const f of state.pellets) {
     if (!f.active) continue;
+
+    const fadeAlpha = Math.min(f.fadeInTimer / PELLET_FADE_DURATION, 1);
+
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 600);
+    const pelletColor = `hsla(${pelletHue}, 80%, ${50 + 20 * pulse}%, ${fadeAlpha})`;
+    const glowColor = `hsla(${pelletHue}, 80%, ${30 + 20 * pulse}%, ${0.4 * fadeAlpha})`;
+
     const g = ctx.createRadialGradient(
       f.pos.x,
       f.pos.y,
-      2,
+      3,
       f.pos.x,
       f.pos.y,
-      PELLET_RADIUS,
+      PELLET_RADIUS * (1.2 + 0.2 * pulse),
     );
-    g.addColorStop(0, "orange");
-    g.addColorStop(1, "red");
+    g.addColorStop(0, pelletColor);
+    g.addColorStop(1, glowColor);
+
     ctx.fillStyle = g;
     circle(ctx, f.pos, PELLET_RADIUS);
     ctx.fill();
-    ctx.strokeStyle = "rgba(255,180,0,0.6)";
+
+    ctx.strokeStyle = `hsla(${pelletHue}, 90%, 60%, ${(0.3 + 0.2 * pulse) * fadeAlpha})`;
     circle(ctx, f.pos, PELLET_RADIUS);
     ctx.stroke();
   }
 
-  // Pops
   for (const p of state.pops) {
     if (!p.active) continue;
     const t = p.timer / POP_DURATION;
@@ -371,11 +399,14 @@ function draw(state: GameState) {
     visibleLen = Math.max(state.cutFrom, state.cutStartLen - toRemove);
   }
 
-  // Body
   for (let i = visibleLen - 1; i >= 0; i--) {
     const ft = i / Math.max(state.length - 1, 1);
     const r = TAIL_RADIUS + (HEAD_RADIUS - TAIL_RADIUS) * (1 - ft);
-    const color = `rgba(${(220 - ft * 120) | 0},${(100 + ft * 100) | 0},${(70 + ft * 70) | 0},${alpha(state, i)})`;
+    const hue = (headHue + ft * 60) % 360;
+    const sat = 80;
+    const light = 50 + ft * 20;
+    const color = `hsla(${hue}, ${sat}%, ${light}%, ${alpha(state, i)})`;
+
     drawWrappedCircle(state, state.positions[i], r, color);
   }
 
@@ -459,8 +490,13 @@ const randomPos = (c: HTMLCanvasElement) => ({
 const spawnPellet = (s: GameState, n: number) => {
   for (const f of s.pellets)
     if (!f.active && n-- > 0)
-      Object.assign(f, { pos: randomPos(s.canvas), active: true });
-  while (n-- > 0) s.pellets.push({ pos: randomPos(s.canvas), active: true });
+      Object.assign(f, {
+        pos: randomPos(s.canvas),
+        active: true,
+        fadeInTimer: 0,
+      });
+  while (n-- > 0)
+    s.pellets.push({ pos: randomPos(s.canvas), active: true, fadeInTimer: 0 });
 };
 const spawnPop = (s: GameState, pos: Vec2) =>
   s.pops.push({ pos, timer: 0, active: true });
