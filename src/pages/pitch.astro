@@ -1,0 +1,535 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="pitch">
+  <div class="p-5">
+    <!-- Frequency Display -->
+    <div
+      class="text-center mb-6 p-6 text-white"
+    >
+      <div id="frequencyValue" class="text-4xl font-bold mb-1 drop-shadow-lg">440.0 Hz</div>
+      <div id="noteName" class="text-xl opacity-90">A4</div>
+      <div id="centsOffset" class="text-base opacity-80 mt-1">±0 cents</div>
+    </div>
+
+    <!-- Spectrum Canvas -->
+    <div
+      id="canvasContainer"
+      class="relative w-full h-[300px] mb-6 rounded-xl overflow-hidden shadow-lg border border-blue-500/20 select-none touch-none"
+    >
+      <canvas id="spectrumCanvas" class="block w-full h-full bg-slate-950"
+      ></canvas>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex flex-wrap gap-3 justify-center items-center mt-6">
+      <button
+        id="startBtn"
+        class="px-6 py-3 text-lg font-semibold rounded-lg transition-all bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-md border border-blue-400/20 hover:from-blue-500 hover:to-blue-400 active:scale-95"
+      >
+        TAP TO START
+      </button>
+
+      <div
+        class="flex bg-slate-900/90 border border-blue-500/20 rounded-xl p-1 gap-1 shadow-md"
+      >
+        <div class="relative cursor-pointer">
+          <input
+            type="radio"
+            name="soundMode"
+            id="directMode"
+            value="direct"
+            class="absolute opacity-0 w-0 h-0 peer"
+          />
+          <label
+            for="directMode"
+            class="flex items-center gap-2 px-4 py-2 rounded-md text-slate-300 font-medium text-sm transition peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-blue-500 peer-checked:text-white peer-checked:shadow-md cursor-pointer select-none"
+          >
+            <span class="text-lg">⚡</span> Direct
+          </label>
+        </div>
+        <div class="relative cursor-pointer">
+          <input
+            type="radio"
+            name="soundMode"
+            id="niceMode"
+            value="nice"
+            checked
+            class="absolute opacity-0 w-0 h-0 peer"
+          />
+          <label
+            for="niceMode"
+            class="flex items-center gap-2 px-4 py-2 rounded-md text-slate-300 font-medium text-sm transition peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-blue-500 peer-checked:text-white peer-checked:shadow-md cursor-pointer select-none"
+          >
+            <span class="text-lg">✨</span> Nice
+          </label>
+        </div>
+      </div>
+
+      <div class="relative cursor-pointer">
+        <input
+          type="checkbox"
+          id="equalTemperamentClamp"
+          class="absolute opacity-0 w-0 h-0 peer"
+        />
+        <label
+          for="equalTemperamentClamp"
+          class="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900/90 border border-blue-500/20 text-slate-300 font-medium text-sm transition peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-blue-500 peer-checked:text-white peer-checked:border-blue-400/30 peer-checked:shadow-md cursor-pointer select-none"
+        >
+          <span class="text-lg">🎯</span> Equal temperament clamp
+        </label>
+      </div>
+    </div>
+    <div
+      id="status"
+      class="text-center text-blue-400 font-medium mt-3 min-h-[20px]"
+    >
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById(
+      "spectrumCanvas"
+    ) as HTMLCanvasElement;
+    const ctx: CanvasRenderingContext2D = (() => {
+      const c = canvas.getContext("2d");
+      if (!c) throw new Error("2D context not available");
+      return c;
+    })();
+    const canvasContainer = document.getElementById(
+      "canvasContainer"
+    ) as HTMLDivElement;
+    const frequencyValue = document.getElementById(
+      "frequencyValue"
+    ) as HTMLDivElement;
+    const noteName = document.getElementById("noteName") as HTMLDivElement;
+    const centsOffset = document.getElementById(
+      "centsOffset"
+    ) as HTMLDivElement;
+    const startBtn = document.getElementById("startBtn") as HTMLButtonElement;
+    const status = document.getElementById("status") as HTMLDivElement;
+
+    let audioContext: AudioContext | null = null;
+    let oscillator: OscillatorNode | null = null;
+    let gainNode: GainNode | null = null;
+    let convolver: ConvolverNode | null = null;
+    let dryGain: GainNode | null = null;
+    let wetGain: GainNode | null = null;
+    let currentEnvelope: GainNode | null = null;
+
+    let isPlaying: boolean = false;
+    let isAudioReady: boolean = false;
+    let currentFreq: number = 440;
+    let isDragging: boolean = false;
+    let soundMode: "direct" | "nice" = "nice";
+    let releaseTimeout: number | null = null;
+    let equalTemperamentClamp: boolean = false;
+
+    const MIN_FREQ = 55;
+    const MAX_FREQ = 1760;
+    const noteNames: string[] = [
+      "C",
+      "C#",
+      "D",
+      "D#",
+      "E",
+      "F",
+      "F#",
+      "G",
+      "G#",
+      "A",
+      "A#",
+      "B",
+    ];
+
+    function resizeCanvas(): void {
+      const rect = canvasContainer.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      drawSpectrum();
+    }
+
+    function frequencyToNote(freq: number): {
+      name: string;
+      cents: number;
+      noteNum: number;
+    } {
+      const noteNumFloat = 12 * Math.log2(freq / 440) + 69;
+      const roundedNote = Math.round(noteNumFloat);
+      const name = noteNames[roundedNote % 12];
+      const octave = Math.floor(roundedNote / 12) - 1;
+      const cents = Math.round((noteNumFloat - roundedNote) * 100);
+      return { name: `${name}${octave}`, cents, noteNum: roundedNote };
+    }
+
+    function noteToFrequency(noteNum: number): number {
+      return 440 * Math.pow(2, (noteNum - 69) / 12);
+    }
+
+    function drawSpectrum(): void {
+      const width = canvasContainer.offsetWidth;
+      const height = canvasContainer.offsetHeight;
+      ctx.clearRect(0, 0, width, height);
+      const gradient = ctx.createLinearGradient(0, 0, width, 0);
+      gradient.addColorStop(0, "#0c4a6e");
+      gradient.addColorStop(0.25, "#075985");
+      gradient.addColorStop(0.5, "#0369a1");
+      gradient.addColorStop(0.75, "#0284c7");
+      gradient.addColorStop(1, "#0ea5e9");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
+
+      // Octave markers (2:1 ratio)
+      ctx.strokeStyle = "rgba(255,255,255,0.6)";
+      ctx.lineWidth = 2;
+      [55, 110, 220, 440, 880, 1760].forEach((freq) => {
+        const x = freqToX(freq, width);
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,0.95)";
+        ctx.font = "600 12px sans-serif";
+        ctx.fillText(`${freq}Hz`, x + 5, 20);
+      });
+
+      // Perfect fifth markers (3:2 ratio)
+      ctx.strokeStyle = "rgba(186,230,253,0.45)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      const perfectFifths = [
+        82.5, 165, 330, 660, 1320
+      ];
+      perfectFifths.forEach((freq) => {
+        if (freq >= MIN_FREQ && freq <= MAX_FREQ) {
+          const x = freqToX(freq, width);
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(224,242,254,0.85)";
+          ctx.font = "500 10px sans-serif";
+          ctx.fillText(`${freq.toFixed(1)}Hz`, x + 3, 35);
+        }
+      });
+
+      // Perfect fourth markers (4:3 ratio)
+      ctx.strokeStyle = "rgba(165,243,252,0.4)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      const perfectFourths = [
+        73.33, 146.67, 293.33, 586.67, 1173.33
+      ];
+      perfectFourths.forEach((freq) => {
+        if (freq >= MIN_FREQ && freq <= MAX_FREQ) {
+          const x = freqToX(freq, width);
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(207,250,254,0.85)";
+          ctx.font = "500 10px sans-serif";
+          ctx.fillText(`${freq.toFixed(1)}Hz`, x + 3, 50);
+        }
+      });
+
+      // Major third markers (5:4 ratio)
+      ctx.strokeStyle = "rgba(224,242,254,0.3)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([1, 3]);
+      const majorThirds = [
+        68.75, 137.5, 275, 550, 1100
+      ];
+      majorThirds.forEach((freq) => {
+        if (freq >= MIN_FREQ && freq <= MAX_FREQ) {
+          const x = freqToX(freq, width);
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(240,249,255,0.8)";
+          ctx.font = "500 9px sans-serif";
+          ctx.fillText(`${freq.toFixed(1)}Hz`, x + 3, 65);
+        }
+      });
+
+      // Reset line dash for subsequent drawing
+      ctx.setLineDash([]);
+
+      if (isDragging) {
+        const x = freqToX(currentFreq, width);
+        const glow = ctx.createRadialGradient(
+          x,
+          height / 2,
+          0,
+          x,
+          height / 2,
+          60
+        );
+        glow.addColorStop(0, "rgba(255,255,255,0.4)");
+        glow.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(x - 60, 0, 120, height);
+
+        ctx.strokeStyle = "rgba(255,255,255,0.95)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(x, height / 2, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+    }
+
+    function freqToX(freq: number, width: number): number {
+      const logMin = Math.log(MIN_FREQ);
+      const logMax = Math.log(MAX_FREQ);
+      const logFreq = Math.log(freq);
+      return ((logFreq - logMin) / (logMax - logMin)) * width;
+    }
+
+    function xToFreq(x: number, width: number): number {
+      const ratio = x / width;
+      const logMin = Math.log(MIN_FREQ);
+      const logMax = Math.log(MAX_FREQ);
+      const logFreq = logMin + ratio * (logMax - logMin);
+      return Math.exp(logFreq);
+    }
+
+    function createImpulseResponse(
+      duration: number,
+      decay: number
+    ): AudioBuffer | null {
+      if (!audioContext) return null;
+      const sampleRate = audioContext.sampleRate;
+      const length = Math.floor(sampleRate * duration);
+      const impulse = audioContext.createBuffer(2, length, sampleRate);
+      const left = impulse.getChannelData(0);
+      const right = impulse.getChannelData(1);
+      for (let i = 0; i < length; i++) {
+        const n = i / sampleRate;
+        const env = Math.exp(-n * decay);
+        const v = (Math.random() * 2 - 1) * env * 0.5;
+        left[i] = v;
+        right[i] = v;
+      }
+      return impulse;
+    }
+
+    function initAudio(): void {
+      try {
+        const ctor: typeof AudioContext | undefined =
+          window.AudioContext || (window as any).webkitAudioContext;
+        if (!ctor) throw new Error("AudioContext unsupported");
+        audioContext = new ctor();
+        gainNode = audioContext.createGain();
+        gainNode.connect(audioContext.destination);
+        gainNode.gain.value = 0.25;
+
+        convolver = audioContext.createConvolver();
+        convolver.buffer = createImpulseResponse(1.2, 4.5);
+
+        dryGain = audioContext.createGain();
+        wetGain = audioContext.createGain();
+
+        convolver.connect(wetGain);
+        wetGain.connect(audioContext.destination);
+        dryGain.connect(audioContext.destination);
+
+        isAudioReady = true;
+        status.textContent = "✓ Audio ready! Now touch the spectrum";
+        startBtn.textContent = "AUDIO READY";
+        startBtn.classList.add("ready");
+      } catch (e) {
+        status.textContent = "✗ Audio failed to initialize";
+        console.error(e);
+      }
+    }
+
+    function startTone(freq: number): void {
+      if (!audioContext || !isAudioReady) return;
+      if (releaseTimeout) {
+        clearTimeout(releaseTimeout);
+        releaseTimeout = null;
+      }
+      if (oscillator) {
+        try {
+          oscillator.stop();
+          oscillator.disconnect();
+        } catch {}
+      }
+      oscillator = audioContext.createOscillator();
+      oscillator.type = "sine";
+      oscillator.frequency.value = freq;
+
+      if (soundMode === "nice") {
+        if (!dryGain || !convolver) return;
+        const envelope = audioContext.createGain();
+        envelope.gain.value = 0;
+        oscillator.connect(envelope);
+        envelope.connect(dryGain);
+        envelope.connect(convolver);
+        dryGain.gain.value = 0.22;
+        if (wetGain) wetGain.gain.value = 0.08;
+        oscillator.start();
+        envelope.gain.setValueAtTime(0, audioContext.currentTime);
+        envelope.gain.linearRampToValueAtTime(
+          1,
+          audioContext.currentTime + 0.02
+        );
+        currentEnvelope = envelope;
+      } else {
+        if (!gainNode) return;
+        oscillator.connect(gainNode);
+        oscillator.start();
+        currentEnvelope = null;
+      }
+      isPlaying = true;
+    }
+
+    function stopTone(): void {
+      if (!oscillator) {
+        isDragging = false;
+        drawSpectrum();
+        return;
+      }
+      if (soundMode === "nice" && currentEnvelope && audioContext) {
+        const env = currentEnvelope;
+        env.gain.cancelScheduledValues(audioContext.currentTime);
+        env.gain.setValueAtTime(env.gain.value, audioContext.currentTime);
+        env.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.25);
+        releaseTimeout = window.setTimeout(() => {
+          try {
+            if (oscillator) {
+              oscillator.stop();
+              oscillator.disconnect();
+            }
+          } catch {}
+          oscillator = null;
+        }, 350);
+      } else {
+        try {
+          oscillator.stop();
+          oscillator.disconnect();
+        } catch {}
+        oscillator = null;
+      }
+      isPlaying = false;
+      isDragging = false;
+      drawSpectrum();
+    }
+
+    function updateFrequency(x: number): void {
+      const width = canvasContainer.offsetWidth;
+      const clamped = Math.max(MIN_FREQ, Math.min(MAX_FREQ, xToFreq(x, width)));
+
+      if (equalTemperamentClamp) {
+        const info = frequencyToNote(clamped);
+        currentFreq = noteToFrequency(info.noteNum);
+      } else {
+        currentFreq = clamped;
+      }
+
+      if (oscillator && isPlaying && audioContext) {
+        oscillator.frequency.setValueAtTime(
+          currentFreq,
+          audioContext.currentTime
+        );
+      }
+      const info = frequencyToNote(currentFreq);
+      frequencyValue.textContent = `${currentFreq.toFixed(1)} Hz`;
+      noteName.textContent = info.name;
+      centsOffset.textContent =
+        info.cents === 0
+          ? "Perfect pitch!"
+          : info.cents > 0
+            ? `+${info.cents} cents (sharp)`
+            : `${info.cents} cents (flat)`;
+      drawSpectrum();
+    }
+
+    function getEventX(e: MouseEvent | TouchEvent): number {
+      const rect = canvas.getBoundingClientRect();
+      if (e instanceof TouchEvent && e.touches.length > 0) {
+        return e.touches[0].clientX - rect.left;
+      }
+      if (e instanceof MouseEvent) {
+        return e.clientX - rect.left;
+      }
+      return 0;
+    }
+
+    function handleStart(e: MouseEvent | TouchEvent): void {
+      if (!isAudioReady) {
+        status.textContent = "⚠ Please tap START button first";
+        return;
+      }
+      e.preventDefault();
+      isDragging = true;
+      updateFrequency(getEventX(e));
+      startTone(currentFreq);
+      status.textContent = "🎵 Playing...";
+    }
+
+    function handleMove(e: MouseEvent | TouchEvent): void {
+      if (!isDragging || !isAudioReady) return;
+      e.preventDefault();
+      updateFrequency(getEventX(e));
+    }
+
+    function handleEnd(e: MouseEvent | TouchEvent): void {
+      if (!isDragging) return;
+      e.preventDefault();
+      stopTone();
+      if (isAudioReady) status.textContent = "✓ Ready - Touch spectrum to play";
+    }
+
+    startBtn.addEventListener("click", (e: MouseEvent) => {
+      e.preventDefault();
+      if (!isAudioReady) initAudio();
+    });
+
+    document
+      .querySelectorAll<HTMLInputElement>("input[name='soundMode']")
+      .forEach((radio) => {
+        radio.addEventListener("change", () => {
+          if (
+            radio.checked &&
+            (radio.value === "direct" || radio.value === "nice")
+          ) {
+            soundMode = radio.value;
+          }
+        });
+      });
+
+    const eqClamp = document.getElementById(
+      "equalTemperamentClamp"
+    ) as HTMLInputElement;
+    eqClamp.addEventListener("change", () => {
+      equalTemperamentClamp = eqClamp.checked;
+    });
+
+    canvas.addEventListener("touchstart", handleStart, { passive: false });
+    canvas.addEventListener("touchmove", handleMove, { passive: false });
+    canvas.addEventListener("touchend", handleEnd, { passive: false });
+    canvas.addEventListener("touchcancel", handleEnd, { passive: false });
+    canvas.addEventListener("mousedown", handleStart);
+    canvas.addEventListener("mousemove", handleMove);
+    canvas.addEventListener("mouseup", handleEnd);
+    canvas.addEventListener("mouseleave", handleEnd);
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+  </script>
+</Layout>
