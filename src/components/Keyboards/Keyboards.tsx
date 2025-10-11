@@ -10,7 +10,8 @@ export function Keyboards() {
     initAudio();
     setVolume(globalVolume);
     return stopAllNotes;
-  }, []);
+    // Initialize audio on mount, no deps since it should only run once
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setVolume(globalVolume);
