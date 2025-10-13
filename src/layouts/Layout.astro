@@ -1,10 +1,11 @@
 ---
 interface Props {
 	title: string;
+	description: string;
 	disableZoom?: boolean;
 }
 
-const { title, disableZoom = false } = Astro.props;
+const { title, description, disableZoom = false } = Astro.props;
 
 const viewportContent = disableZoom
 	? "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
@@ -33,7 +34,7 @@ const viewportContent = disableZoom
 			})();
 		</script>
 		<meta charset="UTF-8" />
-		<meta name="description" content="Astro description" />
+		<meta name="description" content={description} />
 		<meta name="viewport" content={viewportContent} />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="generator" content={Astro.generator} />
