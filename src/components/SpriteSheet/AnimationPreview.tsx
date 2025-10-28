@@ -26,12 +26,10 @@ export function AnimationPreview({
     const { originX, originY, cols, cellW, cellH } = grid;
     const { col, row } = indexToColRow(currentFrame, cols);
 
-    // Calculate source coordinates in image pixel space (0,0 = top-left of image)
-    // In PixiJS, the sprite is centered at (0, 0) in world space
-    // originX/originY are offsets from the image center in world space
-    // To convert to pixel space: add image center offset
-    const sx = image.width / 2 + originX + col * cellW;
-    const sy = image.height / 2 + originY + row * cellH;
+    // Calculate source coordinates in image pixel space
+    // originX/originY are now relative to top-left of image (0,0 = top-left)
+    const sx = originX + col * cellW;
+    const sy = originY + row * cellH;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);

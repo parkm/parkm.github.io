@@ -162,8 +162,10 @@ export function PixiStage({
     texture.source.scaleMode = "nearest"; // Pixel-perfect scaling
 
     const sprite = new PIXI.Sprite(texture);
-    sprite.anchor.set(0.5, 0.5);
-    sprite.position.set(0, 0);
+    // Set anchor to top-left so (0, 0) origin means top-left of image
+    sprite.anchor.set(0, 0);
+    // Position sprite so its top-left is at world origin (0, 0)
+    sprite.position.set(-image.width / 2, -image.height / 2);
 
     const gridIndex = imageContainer.getChildIndex(gridGraphicsRef.current!);
     imageContainer.addChildAt(sprite, gridIndex);
@@ -178,8 +180,10 @@ export function PixiStage({
       gridGraphics.clear();
 
       const { originX, originY, cols, rows, cellW, cellH } = grid;
-      const startX = originX;
-      const startY = originY;
+      // Convert from image-space (0,0 = top-left of image) to world-space
+      // The sprite is positioned at (-width/2, -height/2) so its top-left is at world (0,0)
+      const startX = -image.width / 2 + originX;
+      const startY = -image.height / 2 + originY;
       const totalW = cols * cellW;
       const totalH = rows * cellH;
 

@@ -1,6 +1,7 @@
 import React from "react";
 import type { Grid } from "./types";
 import { AnimationPreview } from "./AnimationPreview";
+import { calculateAutoDivide } from "./utils";
 
 type SidebarProps = {
   image: HTMLImageElement | null;
@@ -20,9 +21,30 @@ export function Sidebar({
   currentFrame,
 }: SidebarProps) {
   const [dimensionsLinked, setDimensionsLinked] = React.useState(true);
+  const [autoDivideCells, setAutoDivideCells] = React.useState<number>(
+    grid.cols * grid.rows,
+  );
+
+  const handleAutoDivide = (totalCells: number) => {
+    if (!image || totalCells <= 0) return;
+
+    const result = calculateAutoDivide({
+      totalCells,
+      imageWidth: image.width,
+      imageHeight: image.height,
+    });
+
+    setGrid({
+      ...grid,
+      cols: result.cols,
+      rows: result.rows,
+      cellW: result.cellW,
+      cellH: result.cellH,
+    });
+  };
 
   return (
-    <div className="w-full md:w-80 border-l border-zinc-200 dark:border-zinc-800 h-full flex flex-col bg-white dark:bg-zinc-950">
+    <div className="w-full md:w-80 border-l border-zinc-200 dark:border-zinc-800 h-full flex flex-col bg-white dark:bg-zinc-950 overflow-auto">
       <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           Animation Preview
@@ -64,6 +86,35 @@ export function Sidebar({
           <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
             Grid Configuration
           </h3>
+
+          <div className="space-y-1.5 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+            <label className="text-xs font-medium text-blue-900 dark:text-blue-100">
+              Auto Divide
+            </label>
+            <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
+              Enter total cells to auto-calculate grid
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min={1}
+                value={autoDivideCells}
+                onChange={(e) => {
+                  const value = Math.max(1, Number(e.target.value));
+                  setAutoDivideCells(value);
+                  handleAutoDivide(value);
+                }}
+                disabled={!image}
+                className="flex-1 px-2.5 py-1.5 rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-zinc-900 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder="Total cells"
+              />
+            </div>
+            {image && (
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                Image: {image.width}×{image.height}px
+              </p>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
