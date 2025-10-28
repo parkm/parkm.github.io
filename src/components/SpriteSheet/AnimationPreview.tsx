@@ -79,15 +79,33 @@ export function AnimationPreview({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
-    const cssW = 200;
-    const cssH = 200;
+
+    // Calculate aspect ratio from cell dimensions
+    const { cellW, cellH } = grid;
+    const aspectRatio = cellW / cellH;
+
+    // Set canvas size to maintain aspect ratio
+    const maxSize = 200;
+    let cssW: number;
+    let cssH: number;
+
+    if (aspectRatio >= 1) {
+      // Wider or square
+      cssW = maxSize;
+      cssH = maxSize / aspectRatio;
+    } else {
+      // Taller
+      cssH = maxSize;
+      cssW = maxSize * aspectRatio;
+    }
+
     const w = Math.max(1, Math.floor(cssW * dpr));
     const h = Math.max(1, Math.floor(cssH * dpr));
     canvas.width = w;
     canvas.height = h;
     canvas.style.width = `${cssW}px`;
     canvas.style.height = `${cssH}px`;
-  }, []);
+  }, [grid]);
 
   return (
     <div className="flex flex-col items-center">

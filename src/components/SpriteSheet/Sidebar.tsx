@@ -12,6 +12,8 @@ type SidebarProps = {
   currentFrame: number | null;
 };
 
+// TODO: This is currently getting updated per frame of the animation which isn't necessary.
+// We could memoize it but I think we should just lift out the current frame state from React and keep track of it manually.
 export function Sidebar({
   image,
   grid,
