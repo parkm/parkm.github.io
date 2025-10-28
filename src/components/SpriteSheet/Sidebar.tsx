@@ -1,7 +1,7 @@
 import React from "react";
 import type { Grid } from "./types";
 import { AnimationPreview } from "./AnimationPreview";
-import { calculateAutoDivide } from "./utils";
+import { calculateAutoDivide, detectSpriteCells } from "./utils";
 
 type SidebarProps = {
   image: HTMLImageElement | null;
@@ -24,6 +24,7 @@ export function Sidebar({
   const [autoDivideCells, setAutoDivideCells] = React.useState<number>(
     grid.cols * grid.rows,
   );
+  const [isPredicting, setIsPredicting] = React.useState(false);
 
   const handleAutoDivide = (totalCells: number) => {
     if (!image || totalCells <= 0) return;
@@ -41,6 +42,25 @@ export function Sidebar({
       cellW: result.cellW,
       cellH: result.cellH,
     });
+  };
+
+  const handleAutoDetect = () => {
+    if (!image) return;
+
+    setIsPredicting(true);
+
+    // Run detection in a timeout to allow UI to update
+    setTimeout(() => {
+      try {
+        const detectedCells = detectSpriteCells(image);
+        setAutoDivideCells(detectedCells);
+        handleAutoDivide(detectedCells);
+      } catch (error) {
+        console.error("Error detecting sprite cells:", error);
+      } finally {
+        setIsPredicting(false);
+      }
+    }, 50);
   };
 
   return (
@@ -109,6 +129,39 @@ export function Sidebar({
                 placeholder="Total cells"
               />
             </div>
+            <button
+              onClick={handleAutoDetect}
+              disabled={!image || isPredicting}
+              className="w-full px-3 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white text-sm font-medium shadow-sm hover:shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isPredicting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg
+                    className="animate-spin h-4 w-4"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  Detecting...
+                </span>
+              ) : (
+                "Auto Detect"
+              )}
+            </button>
             {image && (
               <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                 Image: {image.width}×{image.height}px
