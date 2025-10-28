@@ -1,88 +1,79 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { Grid } from "./types";
-import { clamp, indexToColRow } from "./utils";
+import { indexToColRow } from "./utils";
 import { useRafLoop } from "./useRafLoop";
 
 type AnimationPreviewProps = {
   image: HTMLImageElement | null;
   grid: Grid;
   fps: number;
+  currentFrame: number;
 };
 
-export function AnimationPreview({ image, grid, fps }: AnimationPreviewProps) {
+export function AnimationPreview({
+  image,
+  grid,
+  currentFrame,
+}: AnimationPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const frameRef = useRef<number>(0);
-  const lastTimeRef = useRef<number>(0);
 
-  const animate = useCallback(
-    (ts: number) => {
-      const canvas = canvasRef.current;
-      if (!canvas || !image) return;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+  const animate = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !image) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-      const delta = ts - lastTimeRef.current;
-      const interval = 1000 / clamp(fps, 1, 60);
+    const { originX, originY, cols, cellW, cellH } = grid;
+    const { col, row } = indexToColRow(currentFrame, cols);
 
-      if (!lastTimeRef.current || delta >= interval) {
-        lastTimeRef.current = ts;
-        const total = Math.max(1, grid.cols * grid.rows);
-        frameRef.current = (frameRef.current + 1) % total;
+    // Calculate source coordinates in image pixel space (0,0 = top-left of image)
+    // In PixiJS, the sprite is centered at (0, 0) in world space
+    // originX/originY are offsets from the image center in world space
+    // To convert to pixel space: add image center offset
+    const sx = image.width / 2 + originX + col * cellW;
+    const sy = image.height / 2 + originY + row * cellH;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Checkerboard background for transparency
+    const checkSize = 16;
+    const numCols = Math.ceil(canvas.width / checkSize);
+    const numRows = Math.ceil(canvas.height / checkSize);
+
+    for (let y = 0; y < numRows; y++) {
+      for (let x = 0; x < numCols; x++) {
+        ctx.fillStyle = (x + y) % 2 === 0 ? "#cccccc" : "#999999";
+        ctx.fillRect(x * checkSize, y * checkSize, checkSize, checkSize);
       }
+    }
 
-      const { originX, originY, cols, cellW, cellH } = grid;
-      const { col, row } = indexToColRow(frameRef.current, cols);
+    ctx.imageSmoothingEnabled = false;
+    if (image && cellW > 0 && cellH > 0) {
+      // Clamp to valid image bounds to avoid sampling outside
+      const clampedSx = Math.max(0, Math.min(image.width - cellW, sx));
+      const clampedSy = Math.max(0, Math.min(image.height - cellH, sy));
+      const clampedW = Math.min(cellW, image.width - clampedSx);
+      const clampedH = Math.min(cellH, image.height - clampedSy);
 
-      // Calculate source coordinates in image pixel space (0,0 = top-left of image)
-      // In PixiJS, the sprite is centered at (0, 0) in world space
-      // originX/originY are offsets from the image center in world space
-      // To convert to pixel space: add image center offset
-      const sx = image.width / 2 + originX + col * cellW;
-      const sy = image.height / 2 + originY + row * cellH;
-
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Checkerboard background for transparency
-      const checkSize = 16;
-      const numCols = Math.ceil(canvas.width / checkSize);
-      const numRows = Math.ceil(canvas.height / checkSize);
-
-      for (let y = 0; y < numRows; y++) {
-        for (let x = 0; x < numCols; x++) {
-          ctx.fillStyle = (x + y) % 2 === 0 ? "#cccccc" : "#999999";
-          ctx.fillRect(x * checkSize, y * checkSize, checkSize, checkSize);
-        }
+      if (clampedW > 0 && clampedH > 0) {
+        ctx.drawImage(
+          image,
+          clampedSx,
+          clampedSy,
+          clampedW,
+          clampedH,
+          0,
+          0,
+          canvas.width * (clampedW / cellW),
+          canvas.height * (clampedH / cellH),
+        );
       }
+    }
 
-      ctx.imageSmoothingEnabled = false;
-      if (image && cellW > 0 && cellH > 0) {
-        // Clamp to valid image bounds to avoid sampling outside
-        const clampedSx = Math.max(0, Math.min(image.width - cellW, sx));
-        const clampedSy = Math.max(0, Math.min(image.height - cellH, sy));
-        const clampedW = Math.min(cellW, image.width - clampedSx);
-        const clampedH = Math.min(cellH, image.height - clampedSy);
-
-        if (clampedW > 0 && clampedH > 0) {
-          ctx.drawImage(
-            image,
-            clampedSx,
-            clampedSy,
-            clampedW,
-            clampedH,
-            0,
-            0,
-            canvas.width * (clampedW / cellW),
-            canvas.height * (clampedH / cellH),
-          );
-        }
-      }
-
-      ctx.strokeStyle = "#e5e7eb";
-      ctx.strokeRect(0, 0, canvas.width, canvas.height);
-    },
-    [image, grid, fps],
-  );
+    ctx.strokeStyle = "#e5e7eb";
+    ctx.strokeRect(0, 0, canvas.width, canvas.height);
+  }, [image, grid, currentFrame]);
 
   useRafLoop(animate, image !== null);
 

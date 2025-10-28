@@ -33,7 +33,12 @@ export function Sidebar({
       </div>
 
       <div className="p-4 flex flex-col gap-4 overflow-auto">
-        <AnimationPreview image={image} grid={grid} fps={fps} />
+        <AnimationPreview
+          image={image}
+          grid={grid}
+          fps={fps}
+          currentFrame={currentFrame ?? 0}
+        />
         <div className="space-y-2">
           <label className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
             Animation Speed

@@ -61,18 +61,30 @@ function SpriteSheetViewerContent() {
   const stageContainerRef = useRef<HTMLDivElement | null>(null);
 
   const totalFrames = grid.cols * grid.rows;
-  const [animTime, setAnimTime] = useState<number>(0);
+  const [currentFrame, setCurrentFrame] = useState<number>(0);
+  const lastTimeRef = useRef<number>(0);
 
-  const currentFrame = useMemo<number>(() => {
-    const total = Math.max(1, totalFrames);
-    return Math.floor(animTime * fps) % total;
-  }, [animTime, fps, totalFrames]);
+  const updateFrame = useCallback(
+    (ts: number) => {
+      const delta = ts - lastTimeRef.current;
+      const interval = 1000 / Math.max(1, Math.min(60, fps));
 
-  const updateAnimTime = useCallback((ts: number) => {
-    setAnimTime(ts / 1000);
-  }, []);
+      if (!lastTimeRef.current || delta >= interval) {
+        lastTimeRef.current = ts;
+        const total = Math.max(1, totalFrames);
+        setCurrentFrame((prev) => (prev + 1) % total);
+      }
+    },
+    [fps, totalFrames],
+  );
 
-  useRafLoop(updateAnimTime, true);
+  useRafLoop(updateFrame, true);
+
+  // Reset frame when grid dimensions change
+  useEffect(() => {
+    setCurrentFrame(0);
+    lastTimeRef.current = 0;
+  }, [grid.cols, grid.rows, grid.cellW, grid.cellH]);
 
   const fitImage = useCallback(() => {
     if (!image) return;
