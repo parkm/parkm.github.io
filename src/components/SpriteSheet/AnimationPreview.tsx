@@ -8,12 +8,14 @@ type AnimationPreviewProps = {
   grid: Grid;
   fps: number;
   currentFrame: number;
+  frameIndices?: number[]; // Optional: specific frames to preview
 };
 
 export function AnimationPreview({
   image,
   grid,
   currentFrame,
+  frameIndices,
 }: AnimationPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -24,7 +26,14 @@ export function AnimationPreview({
     if (!ctx) return;
 
     const { originX, originY, cols, cellW, cellH } = grid;
-    const { col, row } = indexToColRow(currentFrame, cols);
+
+    // Use frameIndices if provided, otherwise use currentFrame
+    const frameIndex =
+      frameIndices && frameIndices.length > 0
+        ? frameIndices[currentFrame % frameIndices.length]
+        : currentFrame;
+
+    const { col, row } = indexToColRow(frameIndex, cols);
 
     // Calculate source coordinates in image pixel space
     // originX/originY are now relative to top-left of image (0,0 = top-left)
@@ -71,7 +80,7 @@ export function AnimationPreview({
 
     ctx.strokeStyle = "#e5e7eb";
     ctx.strokeRect(0, 0, canvas.width, canvas.height);
-  }, [image, grid, currentFrame]);
+  }, [image, grid, currentFrame, frameIndices]);
 
   useRafLoop(animate, image !== null);
 

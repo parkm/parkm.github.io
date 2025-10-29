@@ -12,6 +12,10 @@ type PixiStageProps = {
   setGrid: React.Dispatch<React.SetStateAction<Grid>>;
   currentFrame: number | null;
   onDropFiles: (files: FileList) => void;
+  highlightedFrames?: number[];
+  onCellPointerDown?: (index: number) => void;
+  onCellPointerMove?: (index: number) => void;
+  onCellPointerUp?: () => void;
 };
 
 export function PixiStage({
@@ -24,12 +28,17 @@ export function PixiStage({
   setGrid,
   currentFrame,
   onDropFiles,
+  highlightedFrames = [],
+  onCellPointerDown,
+  onCellPointerMove,
+  onCellPointerUp,
 }: PixiStageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const imageContainerRef = useRef<PIXI.Container | null>(null);
   const gridGraphicsRef = useRef<PIXI.Graphics | null>(null);
   const bgGraphicsRef = useRef<PIXI.Graphics | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDraggingRef = useRef<{
     grid: boolean;
     pan: boolean;
@@ -51,23 +60,25 @@ export function PixiStage({
     appRef.current = app;
 
     (async () => {
+      if (!containerRef.current) return;
+
       await app.init({
-        width: containerRef.current!.clientWidth,
-        height: containerRef.current!.clientHeight,
+        width: containerRef.current.clientWidth,
+        height: containerRef.current.clientHeight,
         backgroundColor: 0x1a1a1a,
         antialias: false,
         resolution: window.devicePixelRatio || 1,
         autoDensity: true,
       });
 
-      containerRef.current!.appendChild(app.canvas);
+      if (!containerRef.current) return;
+      containerRef.current.appendChild(app.canvas);
+      canvasRef.current = app.canvas;
 
-      // Create checkerboard background
       const bgGraphics = new PIXI.Graphics();
       bgGraphicsRef.current = bgGraphics;
       app.stage.addChild(bgGraphics);
 
-      // Function to draw checkerboard background
       const drawBackground = () => {
         bgGraphics.clear();
         const checkSize = 16;
@@ -85,35 +96,33 @@ export function PixiStage({
 
       drawBackground();
 
-      // Create main container for pan/zoom
       const imageContainer = new PIXI.Container();
       imageContainerRef.current = imageContainer;
       app.stage.addChild(imageContainer);
 
-      // Create grid graphics
       const gridGraphics = new PIXI.Graphics();
       gridGraphicsRef.current = gridGraphics;
       gridGraphics.eventMode = "static";
       gridGraphics.cursor = "move";
       imageContainer.addChild(gridGraphics);
 
-      // Handle resize
       const resizeObserver = new ResizeObserver(() => {
-        if (containerRef.current) {
+        if (containerRef.current && app.renderer) {
           app.renderer.resize(
             containerRef.current.clientWidth,
             containerRef.current.clientHeight,
           );
-          // Redraw background to match new size
           drawBackground();
           updateView();
-          // Redraw grid after resize
           if (redrawGridRef.current) {
             redrawGridRef.current();
           }
         }
       });
-      resizeObserver.observe(containerRef.current!);
+
+      if (containerRef.current) {
+        resizeObserver.observe(containerRef.current);
+      }
 
       return () => {
         resizeObserver.disconnect();
@@ -124,6 +133,10 @@ export function PixiStage({
       if (appRef.current) {
         appRef.current.destroy(true, { children: true, texture: true });
         appRef.current = null;
+        imageContainerRef.current = null;
+        gridGraphicsRef.current = null;
+        bgGraphicsRef.current = null;
+        canvasRef.current = null;
       }
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -209,7 +222,21 @@ export function PixiStage({
         gridGraphics.stroke({ color: 0x7dd3fc, width: 1 });
       }
 
-      // Highlight current frame
+      // Highlight animation frames (red)
+      for (const frameIndex of highlightedFrames) {
+        const col = cols === 0 ? 0 : frameIndex % cols;
+        const row = cols === 0 ? 0 : Math.floor(frameIndex / cols);
+        if (row >= rows) continue; // Skip if out of bounds
+
+        const hx = startX + col * cellW;
+        const hy = startY + row * cellH;
+        gridGraphics.rect(hx, hy, cellW, cellH);
+        gridGraphics.fill({ color: 0xff4444, alpha: 0.3 });
+        gridGraphics.rect(hx, hy, cellW, cellH);
+        gridGraphics.stroke({ color: 0xff4444, width: 2 });
+      }
+
+      // Highlight current frame (yellow)
       if (typeof currentFrame === "number") {
         const col = cols === 0 ? 0 : currentFrame % cols;
         const row = cols === 0 ? 0 : Math.floor(currentFrame / cols);
@@ -226,7 +253,7 @@ export function PixiStage({
     // Store the draw function in ref so it can be called on resize
     redrawGridRef.current = drawGrid;
     drawGrid();
-  }, [grid, image, currentFrame]);
+  }, [grid, image, currentFrame, highlightedFrames]);
 
   useEffect(() => {
     const app = appRef.current;
@@ -234,8 +261,51 @@ export function PixiStage({
     const imageContainer = imageContainerRef.current;
     if (!app || !gridGraphics || !imageContainer) return;
 
+    // Helper to get cell index from world coordinates
+    const getCellIndexFromWorld = (
+      worldX: number,
+      worldY: number,
+    ): number | null => {
+      if (!image) return null;
+
+      const { originX, originY, cols, rows, cellW, cellH } = grid;
+      const startX = -image.width / 2 + originX;
+      const startY = -image.height / 2 + originY;
+
+      const localX = worldX - startX;
+      const localY = worldY - startY;
+
+      if (localX < 0 || localY < 0) return null;
+
+      const col = Math.floor(localX / cellW);
+      const row = Math.floor(localY / cellH);
+
+      if (col >= cols || row >= rows) return null;
+
+      return row * cols + col;
+    };
+
     // Grid drag handlers
     const onGridPointerDown = (event: PIXI.FederatedPointerEvent) => {
+      if (event.shiftKey) {
+        isDraggingRef.current.grid = true;
+        isDraggingRef.current.startX = event.globalX;
+        isDraggingRef.current.startY = event.globalY;
+        event.stopPropagation();
+        return;
+      }
+
+      if (onCellPointerDown) {
+        const worldPos = imageContainer.toLocal(event.global);
+        const cellIndex = getCellIndexFromWorld(worldPos.x, worldPos.y);
+
+        if (cellIndex !== null) {
+          onCellPointerDown(cellIndex);
+          event.stopPropagation();
+          return;
+        }
+      }
+
       isDraggingRef.current.grid = true;
       isDraggingRef.current.startX = event.globalX;
       isDraggingRef.current.startY = event.globalY;
@@ -251,11 +321,24 @@ export function PixiStage({
     };
 
     const onPointerMove = (event: PIXI.FederatedPointerEvent) => {
+      if (
+        !isDraggingRef.current.grid &&
+        onCellPointerMove &&
+        imageContainer &&
+        !event.shiftKey
+      ) {
+        const worldPos = imageContainer.toLocal(event.global);
+        const cellIndex = getCellIndexFromWorld(worldPos.x, worldPos.y);
+
+        if (cellIndex !== null) {
+          onCellPointerMove(cellIndex);
+        }
+      }
+
       const dx = event.globalX - isDraggingRef.current.startX;
       const dy = event.globalY - isDraggingRef.current.startY;
 
       if (isDraggingRef.current.grid) {
-        // Move grid
         setGrid((g) => ({
           ...g,
           originX: g.originX + dx / scale,
@@ -264,7 +347,6 @@ export function PixiStage({
         isDraggingRef.current.startX = event.globalX;
         isDraggingRef.current.startY = event.globalY;
       } else if (isDraggingRef.current.pan) {
-        // Pan canvas
         setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
         isDraggingRef.current.startX = event.globalX;
         isDraggingRef.current.startY = event.globalY;
@@ -272,6 +354,9 @@ export function PixiStage({
     };
 
     const onPointerUp = () => {
+      if (onCellPointerUp) {
+        onCellPointerUp();
+      }
       isDraggingRef.current.grid = false;
       isDraggingRef.current.pan = false;
     };
@@ -311,17 +396,37 @@ export function PixiStage({
     app.stage.on("pointerupoutside", onPointerUp);
     app.stage.eventMode = "static";
 
-    app.canvas.addEventListener("wheel", onWheel, { passive: false });
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.addEventListener("wheel", onWheel, { passive: false });
+    }
 
     return () => {
-      gridGraphics.off("pointerdown", onGridPointerDown);
-      app.stage.off("pointerdown", onStagePointerDown);
-      app.stage.off("pointermove", onPointerMove);
-      app.stage.off("pointerup", onPointerUp);
-      app.stage.off("pointerupoutside", onPointerUp);
-      app.canvas.removeEventListener("wheel", onWheel);
+      if (gridGraphics) {
+        gridGraphics.off("pointerdown", onGridPointerDown);
+      }
+      if (app.stage) {
+        app.stage.off("pointerdown", onStagePointerDown);
+        app.stage.off("pointermove", onPointerMove);
+        app.stage.off("pointerup", onPointerUp);
+        app.stage.off("pointerupoutside", onPointerUp);
+      }
+      if (canvas) {
+        canvas.removeEventListener("wheel", onWheel);
+      }
     };
-  }, [scale, pan, setPan, setScale, setGrid]);
+  }, [
+    scale,
+    pan,
+    setPan,
+    setScale,
+    setGrid,
+    grid,
+    image,
+    onCellPointerDown,
+    onCellPointerMove,
+    onCellPointerUp,
+  ]);
 
   // Drag and drop
   const onDragOver = useCallback((e: React.DragEvent) => {

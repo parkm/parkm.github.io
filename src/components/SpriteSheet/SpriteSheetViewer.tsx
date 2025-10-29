@@ -7,18 +7,26 @@ import React, {
 } from "react";
 import { parseAsInteger, useQueryState } from "nuqs";
 import { NuqsAdapter } from "nuqs/adapters/react";
-import type { Vec2, Grid } from "./types";
+import type { Vec2, Grid, Animation } from "./types";
 import { clamp } from "./utils";
 import { useRafLoop } from "./useRafLoop";
 import { Toolbar } from "./Toolbar";
 import { PixiStage } from "./PixiStage";
 import { Sidebar } from "./Sidebar";
+import { AnimationList } from "./AnimationList";
+import { useAnimationEditor } from "./AnimationEditor";
 
 function SpriteSheetViewerContent() {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [pan, setPan] = useState<Vec2>({ x: 0, y: 0 });
   const [scale, setScale] = useState<number>(1);
   const [fps, setFps] = useState<number>(8);
+
+  // Animation state
+  const [animations, setAnimations] = useState<Animation[]>([]);
+  const [selectedAnimationId, setSelectedAnimationId] = useState<string | null>(
+    null,
+  );
 
   const [cols, setCols] = useQueryState("cols", parseAsInteger.withDefault(4));
   const [rows, setRows] = useQueryState("rows", parseAsInteger.withDefault(1));
@@ -64,6 +72,62 @@ function SpriteSheetViewerContent() {
   const [currentFrame, setCurrentFrame] = useState<number>(0);
   const lastTimeRef = useRef<number>(0);
 
+  // Animation management
+  const selectedAnimation = selectedAnimationId
+    ? animations.find((a) => a.id === selectedAnimationId)
+    : null;
+
+  const createAnimation = useCallback((name: string) => {
+    const newAnimation: Animation = {
+      id: crypto.randomUUID(),
+      name,
+      frameIndices: [],
+    };
+    setAnimations((prev) => [...prev, newAnimation]);
+    setSelectedAnimationId(newAnimation.id);
+  }, []);
+
+  const deleteAnimation = useCallback(
+    (id: string) => {
+      setAnimations((prev) => prev.filter((a) => a.id !== id));
+      if (selectedAnimationId === id) {
+        setSelectedAnimationId(null);
+      }
+    },
+    [selectedAnimationId],
+  );
+
+  const renameAnimation = useCallback((id: string, newName: string) => {
+    setAnimations((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, name: newName } : a)),
+    );
+  }, []);
+
+  const updateAnimationFrames = useCallback(
+    (id: string, frameIndices: number[]) => {
+      setAnimations((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, frameIndices } : a)),
+      );
+    },
+    [],
+  );
+
+  const animationEditorResult = useAnimationEditor({
+    frameIndices: selectedAnimation?.frameIndices || [],
+    grid,
+    onUpdateFrames: useCallback(
+      (frameIndices) => {
+        if (selectedAnimation) {
+          updateAnimationFrames(selectedAnimation.id, frameIndices);
+        }
+      },
+      [selectedAnimation, updateAnimationFrames],
+    ),
+  });
+
+  // Only use the editor if an animation is selected
+  const animationEditor = selectedAnimation ? animationEditorResult : null;
+
   const updateFrame = useCallback(
     (ts: number) => {
       const delta = ts - lastTimeRef.current;
@@ -71,11 +135,19 @@ function SpriteSheetViewerContent() {
 
       if (!lastTimeRef.current || delta >= interval) {
         lastTimeRef.current = ts;
-        const total = Math.max(1, totalFrames);
-        setCurrentFrame((prev) => (prev + 1) % total);
+        // If an animation is selected, cycle through its frames
+        // Otherwise cycle through all frames
+        if (selectedAnimation && selectedAnimation.frameIndices.length > 0) {
+          setCurrentFrame(
+            (prev) => (prev + 1) % selectedAnimation.frameIndices.length,
+          );
+        } else {
+          const total = Math.max(1, totalFrames);
+          setCurrentFrame((prev) => (prev + 1) % total);
+        }
       }
     },
-    [fps, totalFrames],
+    [fps, totalFrames, selectedAnimation],
   );
 
   useRafLoop(updateFrame, true);
@@ -146,7 +218,16 @@ function SpriteSheetViewerContent() {
   );
 
   return (
-    <div className="w-full h-screen rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden grid grid-cols-1 md:grid-cols-[1fr_20rem] bg-white dark:bg-zinc-950 shadow-xl">
+    <div className="w-full h-screen rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden grid grid-cols-1 md:grid-cols-[16rem_1fr_20rem] bg-white dark:bg-zinc-950 shadow-xl">
+      <AnimationList
+        animations={animations}
+        selectedAnimationId={selectedAnimationId}
+        onSelectAnimation={setSelectedAnimationId}
+        onCreateAnimation={createAnimation}
+        onDeleteAnimation={deleteAnimation}
+        onRenameAnimation={renameAnimation}
+      />
+
       <div className="flex flex-col relative">
         <Toolbar
           onLoadImage={openFilePicker}
@@ -185,8 +266,18 @@ function SpriteSheetViewerContent() {
               setScale={setScale}
               grid={grid}
               setGrid={setGrid}
-              currentFrame={currentFrame}
+              currentFrame={
+                selectedAnimation && selectedAnimation.frameIndices.length > 0
+                  ? selectedAnimation.frameIndices[
+                      currentFrame % selectedAnimation.frameIndices.length
+                    ]
+                  : currentFrame
+              }
               onDropFiles={handleDropFiles}
+              highlightedFrames={animationEditor?.previewFrames || []}
+              onCellPointerDown={animationEditor?.handlePointerDown}
+              onCellPointerMove={animationEditor?.handlePointerMove}
+              onCellPointerUp={animationEditor?.handlePointerUp}
             />
           </div>
         </div>
@@ -198,7 +289,14 @@ function SpriteSheetViewerContent() {
         setGrid={setGrid}
         fps={fps}
         setFps={setFps}
-        currentFrame={currentFrame}
+        currentFrame={
+          selectedAnimation && selectedAnimation.frameIndices.length > 0
+            ? selectedAnimation.frameIndices[
+                currentFrame % selectedAnimation.frameIndices.length
+              ]
+            : currentFrame
+        }
+        frameIndices={selectedAnimation?.frameIndices}
       />
       <input
         ref={inputRef}

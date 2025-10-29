@@ -8,3 +8,9 @@ export type Grid = {
   cellW: number;
   cellH: number;
 };
+
+export type Animation = {
+  id: string;
+  name: string;
+  frameIndices: number[];
+};

@@ -14,23 +14,6 @@ export function Toolbar({ onLoadImage, resetView, hasImage }: ToolbarProps) {
         >
           Load Image
         </button>
-
-        <div className="hidden sm:flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-          <kbd className="px-2 py-1 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono">
-            Drag
-          </kbd>
-          <span>pan canvas</span>
-          <span className="mx-1 text-zinc-400 dark:text-zinc-600">·</span>
-          <kbd className="px-2 py-1 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono">
-            Drag Grid
-          </kbd>
-          <span>move grid</span>
-          <span className="mx-1 text-zinc-400 dark:text-zinc-600">·</span>
-          <kbd className="px-2 py-1 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono">
-            Wheel
-          </kbd>
-          <span>zoom</span>
-        </div>
       </div>
 
       <div className="flex items-center gap-2">

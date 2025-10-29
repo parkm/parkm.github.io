@@ -10,6 +10,7 @@ type SidebarProps = {
   fps: number;
   setFps: (n: number) => void;
   currentFrame: number | null;
+  frameIndices?: number[];
 };
 
 // TODO: This is currently getting updated per frame of the animation which isn't necessary.
@@ -21,6 +22,7 @@ export function Sidebar({
   fps,
   setFps,
   currentFrame,
+  frameIndices,
 }: SidebarProps) {
   const [dimensionsLinked, setDimensionsLinked] = React.useState(true);
   const [autoDivideCells, setAutoDivideCells] = React.useState<number>(
@@ -82,6 +84,7 @@ export function Sidebar({
           grid={grid}
           fps={fps}
           currentFrame={currentFrame ?? 0}
+          frameIndices={frameIndices}
         />
         <div className="space-y-2">
           <label className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
@@ -101,7 +104,12 @@ export function Sidebar({
           </div>
           <div className="text-xs text-zinc-700 dark:text-zinc-300">
             <span className="font-medium">Current Frame:</span>{" "}
-            {currentFrame ?? 0} / {grid.cols * grid.rows - 1}
+            {currentFrame ?? 0}
+            {frameIndices && frameIndices.length > 0 ? (
+              <span> / {frameIndices.length - 1}</span>
+            ) : (
+              <span> / {grid.cols * grid.rows - 1}</span>
+            )}
           </div>
         </div>
         <div className="space-y-3 pt-2 border-t border-zinc-200 dark:border-zinc-800">
