@@ -11,7 +11,7 @@ import GameOfLife from "../components/GameOfLife/GameOfLife.astro";
 const personalInfo = {
   name: "Parker Miller",
   description:
-    "I'm a front-end developer passionate about creating robust web applications with codebases that emphasize readability, maintainability, and extensibility. I also like to dabble in music production and game development.",
+    "I'm a frontend developer passionate about creating robust web applications with codebases that emphasize readability, maintainability, and extensibility. I also like to dabble in music production and game development.",
   github: "https://github.com/parkm",
   linkedin: "https://linkedin.com/in/parker-miller-381ab3196/",
 };
@@ -31,7 +31,7 @@ const projects: {
 ];
 ---
 
-<Layout title={`${personalInfo.name} - Front-end Developer`} description="Personal website of Parker Miller">
+<Layout title={`${personalInfo.name} - Frontend Developer`} description="Personal website of Parker Miller">
   <header class="hero-section">
     <GameOfLife />
     <div class="hero-backdrop">
@@ -39,7 +39,7 @@ const projects: {
         <div class="hero-header">
           <div>
             <h1><a href={personalInfo.github} class="name-link">{personalInfo.name}</a></h1>
-            <a href={personalInfo.linkedin} class="job-title-link">Front-end Developer</a>
+            <a href={personalInfo.linkedin} class="job-title-link">Frontend Developer</a>
           </div>
           <div class="flex items-center gap-4">
               <GithubIcon href={personalInfo.github} width={32} height={32} />
@@ -81,7 +81,7 @@ const projects: {
           <div class="time-period">Aug 2021 - Present</div>
           <p>
             An accounting practice management application utilizing React and a
-            microservices architecture for the front-end.
+            microservices architecture for the frontend.
             I oversaw the implementation and maintenance of core features
             such as CRM, email and calendar integrations, and a comment feed
             system.
