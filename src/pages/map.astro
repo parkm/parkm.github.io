@@ -1,0 +1,59 @@
+---
+import Layout from "src/layouts/Layout.astro";
+
+const modules = import.meta.glob("/src/pages/**/*.astro", { eager: true });
+
+let links = Object.keys(modules)
+  .filter(
+    (filePath) =>
+      !/\/index\.astro$/.test(filePath) || filePath === "/src/pages/index.astro"
+  )
+  .map((filePath) => {
+    const href =
+      filePath
+        .replace("/src/pages", "")
+        .replace(/index\.astro$/, "")
+        .replace(/\.astro$/, "")
+        .replace(/\/$/, "") || "/";
+    const title =
+      filePath === "/src/pages/index.astro"
+        ? "Root"
+        : (filePath
+            .split("/")
+            .pop()
+            ?.replace(".astro", "")
+            .replace(/-/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase()) ?? "");
+    return { href, title };
+  })
+  .toSorted((a, b) => {
+    if (a.title === "Root") return -1;
+    if (b.title === "Root") return 1;
+    return a.title.localeCompare(b.title);
+  });
+---
+
+<Layout title="Index" description="All pages on the site">
+  <main class="min-h-screen px-6 py-20 bg-[#13151a] text-[#e5e5e5]">
+    <header class="text-center mb-12">
+      <h1 class="text-4xl font-bold mb-2 text-white">Site Map</h1>
+    </header>
+
+    <ul class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 max-w-4xl mx-auto">
+      {
+        links.map(({ href, title }) => (
+          <li>
+            <a
+              href={href}
+              class="block rounded-lg border border-[var(--border-color)] bg-[#1b1d24]
+                   hover:bg-[#22242c]
+                   transition-colors text-center py-6 font-medium text-white"
+            >
+              {title}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </main>
+</Layout>
