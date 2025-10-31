@@ -10,6 +10,10 @@ import { isPlayableKey, noteFromKey, MAX_VEL } from "./utils";
 import { KeyPiano } from "./KeyPiano";
 import { useComputerKeyboard } from "./useKeyboard";
 import { Piano } from "./Piano";
+import { PresetSelector } from "./PresetSelector";
+import { createSynthEngine, type SynthEngine } from "./SynthEngine";
+import { DEFAULT_PRESET_ID } from "./presets/index";
+import { MasterChannel } from "./MasterChannel";
 
 const Badge = ({ children }: { children: ReactNode }) => (
   <span className="inline-flex items-center rounded-full border border-zinc-300/70 bg-white/60 px-2.5 py-0.5 text-xs font-medium text-zinc-700 shadow-sm backdrop-blur">
@@ -25,8 +29,9 @@ export function Synth() {
   const [activeNotes, setActiveNotes] = useState<string[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenVisibleOctaves, setFullscreenVisibleOctaves] = useState(2);
+  const [currentPresetId, setCurrentPresetId] = useState(DEFAULT_PRESET_ID);
 
-  const synthRef = useRef<Tone.PolySynth<Tone.Synth> | null>(null);
+  const synthRef = useRef<SynthEngine | null>(null);
   const mountedRef = useRef(false);
   const activeNotesRef = useRef<Map<string, string>>(new Map());
   const fullscreenContainerRef = useRef<HTMLDivElement>(null);
@@ -35,19 +40,12 @@ export function Synth() {
     if (mountedRef.current) return;
     mountedRef.current = true;
 
-    const poly = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: "triangle" },
-      envelope: { attack: 0.01, decay: 0.15, sustain: 0.45, release: 0.8 },
-    });
-    const reverb = new Tone.Reverb({ decay: 2.6, wet: 0.25 });
-    poly.connect(reverb);
-    reverb.toDestination();
-
-    synthRef.current = poly;
+    const engine = createSynthEngine();
+    engine.changePreset(DEFAULT_PRESET_ID);
+    synthRef.current = engine;
 
     return () => {
-      synthRef.current?.releaseAll();
-      synthRef.current?.dispose();
+      engine.dispose();
       synthRef.current = null;
     };
   }, []);
@@ -168,6 +166,35 @@ export function Synth() {
     [triggerRelease, updateActiveNotes],
   );
 
+  const handlePresetChange = useCallback((presetId: string) => {
+    synthRef.current?.releaseAll();
+    activeNotesRef.current.clear();
+    setActiveNotes([]);
+    setPressed({});
+    synthRef.current?.changePreset(presetId);
+    setCurrentPresetId(presetId);
+  }, []);
+
+  const handleMasterGainChange = useCallback((gain: number) => {
+    synthRef.current?.getMasterChain().setGain(gain);
+  }, []);
+
+  const handleMasterEQChange = useCallback(
+    (eq: { low: number; mid: number; high: number }) => {
+      synthRef.current?.getMasterChain().setEQ(eq);
+    },
+    [],
+  );
+
+  const getMeterLevel = useCallback(() => {
+    const meter = synthRef.current?.getMasterChain().meter;
+    if (!meter) return -60;
+    const value = meter.getValue();
+    const level =
+      typeof value === "number" ? value : Array.isArray(value) ? value[0] : -60;
+    return Math.max(-60, Math.min(12, level));
+  }, []);
+
   return (
     <div className="mx-auto max-w-3xl p-4">
       <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl">
@@ -189,6 +216,11 @@ export function Synth() {
               <Badge>Octave: C{octave}</Badge>
               <Badge>Velocity: {velocity}</Badge>
             </div>
+            <PresetSelector
+              currentPresetId={currentPresetId}
+              onPresetChange={handlePresetChange}
+              disabled={!audioReady}
+            />
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -260,6 +292,13 @@ export function Synth() {
             </button>
           </div>
         )}
+      </div>
+      <div className="mx-auto max-w-3xl mt-4">
+        <MasterChannel
+          onGainChange={handleMasterGainChange}
+          onEQChange={handleMasterEQChange}
+          getMeterLevel={getMeterLevel}
+        />
       </div>
     </div>
   );

@@ -1,5 +1,20 @@
 import { useMemo } from "react";
 
+export const sharpRowControls = ["W", "E", "T", "Y", "U", "O", "P"];
+export const whiteRowControls = [
+  "A",
+  "S",
+  "D",
+  "F",
+  "G",
+  "H",
+  "J",
+  "K",
+  "L",
+  ";",
+  "'",
+];
+
 const KeyCap = ({
   label,
   active = false,
@@ -48,13 +63,20 @@ export function KeyPiano({
   onUp: (label: string) => void;
 }) {
   const sharpRow = useMemo(
-    () => ["W", "E", "", "T", "Y", "U", "", "O", "P"],
+    () => [
+      sharpRowControls[0],
+      sharpRowControls[1],
+      "",
+      sharpRowControls[2],
+      sharpRowControls[3],
+      sharpRowControls[4],
+      "",
+      sharpRowControls[5],
+      sharpRowControls[6],
+    ],
     [],
   );
-  const whiteRow = useMemo(
-    () => ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'"],
-    [],
-  );
+  const whiteRow = useMemo(() => whiteRowControls, []);
 
   return (
     <div className="space-y-2">
