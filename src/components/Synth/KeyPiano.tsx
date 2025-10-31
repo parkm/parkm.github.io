@@ -38,7 +38,7 @@ const KeyCap = ({
   );
 };
 
-export function PianoRows({
+export function KeyPiano({
   pressed,
   onDown,
   onUp,

@@ -7,8 +7,9 @@ import {
 } from "react";
 import * as Tone from "tone";
 import { isPlayableKey, noteFromKey, MAX_VEL } from "./utils";
-import { PianoRows } from "./KeyPiano";
+import { KeyPiano } from "./KeyPiano";
 import { useComputerKeyboard } from "./useKeyboard";
+import { Piano } from "./Piano";
 
 const Badge = ({ children }: { children: ReactNode }) => (
   <span className="inline-flex items-center rounded-full border border-zinc-300/70 bg-white/60 px-2.5 py-0.5 text-xs font-medium text-zinc-700 shadow-sm backdrop-blur">
@@ -21,6 +22,7 @@ export function Synth() {
   const [octave, setOctave] = useState(3);
   const [velocity, setVelocity] = useState(100);
   const [pressed, setPressed] = useState<Record<string, boolean>>({});
+  const [activeNotes, setActiveNotes] = useState<string[]>([]);
 
   const synthRef = useRef<Tone.PolySynth<Tone.Synth> | null>(null);
   const mountedRef = useRef(false);
@@ -41,11 +43,8 @@ export function Synth() {
     synthRef.current = poly;
 
     return () => {
-      const s = synthRef.current;
-      if (s) {
-        s.releaseAll();
-        s.dispose();
-      }
+      synthRef.current?.releaseAll();
+      synthRef.current?.dispose();
       synthRef.current = null;
     };
   }, []);
@@ -56,44 +55,48 @@ export function Synth() {
   }, []);
 
   const triggerAttack = useCallback((noteName: string, vel: number) => {
-    const s = synthRef.current;
-    if (!s) return;
-    s.triggerAttack(noteName, undefined, vel);
+    synthRef.current?.triggerAttack(noteName, undefined, vel);
   }, []);
 
   const triggerRelease = useCallback((noteName: string) => {
-    const s = synthRef.current;
-    if (!s) return;
-    s.triggerRelease(noteName);
+    synthRef.current?.triggerRelease(noteName);
+  }, []);
+
+  const updateActiveNotes = useCallback(() => {
+    setActiveNotes(Array.from(activeNotesRef.current.values()));
   }, []);
 
   const playFromKey = useCallback(
     (key: string) => {
       const k = key.toLowerCase();
-      if (!isPlayableKey(k)) return;
-      if (pressed[k]) return;
+      if (!isPlayableKey(k) || pressed[k]) return;
+
       setPressed((prev) => ({ ...prev, [k]: true }));
 
       const noteName = noteFromKey(k, octave);
       const vel = velocity / MAX_VEL;
       triggerAttack(noteName, vel);
       activeNotesRef.current.set(k, noteName);
+      updateActiveNotes();
     },
-    [octave, pressed, triggerAttack, velocity],
+    [octave, pressed, triggerAttack, velocity, updateActiveNotes],
   );
 
   const releaseFromKey = useCallback(
     (key: string) => {
       const k = key.toLowerCase();
       if (!isPlayableKey(k)) return;
+
       setPressed((prev) => ({ ...prev, [k]: false }));
+
       const noteName = activeNotesRef.current.get(k);
-      if (typeof noteName === "string") {
-        triggerRelease(noteName);
-        activeNotesRef.current.delete(k);
-      }
+      if (!noteName) return;
+
+      triggerRelease(noteName);
+      activeNotesRef.current.delete(k);
+      updateActiveNotes();
     },
-    [triggerRelease],
+    [triggerRelease, updateActiveNotes],
   );
 
   useComputerKeyboard({
@@ -105,18 +108,23 @@ export function Synth() {
   });
 
   const handleClickDown = useCallback(
-    async (label: string) => {
+    async (noteName: string) => {
       if (!audioReady) await initAudio();
-      playFromKey(label);
+      const vel = velocity / MAX_VEL;
+      triggerAttack(noteName, vel);
+      activeNotesRef.current.set(noteName, noteName);
+      updateActiveNotes();
     },
-    [audioReady, initAudio, playFromKey],
+    [audioReady, initAudio, triggerAttack, velocity, updateActiveNotes],
   );
 
   const handleClickUp = useCallback(
-    (label: string) => {
-      releaseFromKey(label);
+    (noteName: string) => {
+      triggerRelease(noteName);
+      activeNotesRef.current.delete(noteName);
+      updateActiveNotes();
     },
-    [releaseFromKey],
+    [triggerRelease, updateActiveNotes],
   );
 
   return (
@@ -128,10 +136,10 @@ export function Synth() {
               <span>Key Layout</span>
               <span>Z/X octave · C/V velocity</span>
             </div>
-            <PianoRows
+            <KeyPiano
               pressed={pressed}
-              onDown={handleClickDown}
-              onUp={handleClickUp}
+              onDown={playFromKey}
+              onUp={releaseFromKey}
             />
           </div>
 
@@ -153,6 +161,17 @@ export function Synth() {
             </div>
           </div>
         </div>
+      </div>
+      <div className="mt-4 w-full h-60">
+        <Piano
+          octaves={8}
+          visibleOctaves={2}
+          startingOctave={0}
+          focusOctave={3}
+          activeNotes={activeNotes}
+          onKeyPress={handleClickDown}
+          onKeyRelease={handleClickUp}
+        />
       </div>
     </div>
   );
