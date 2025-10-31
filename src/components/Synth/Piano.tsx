@@ -85,10 +85,17 @@ export function Piano({
   focusOctave,
 }: PianoProps) {
   const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
+  const [scrollThumbLeft, setScrollThumbLeft] = useState(0);
+  const [scrollThumbWidth, setScrollThumbWidth] = useState(100);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollbarRef = useRef<HTMLDivElement>(null);
   const octaveRefs = useRef<Record<number, HTMLDivElement | null>>({});
-  const draggingRef = useRef(false);
-  const currentNoteRef = useRef<string | null>(null);
+  const activePointersRef = useRef<Map<number, string>>(new Map());
+  const scrollbarDragRef = useRef<{
+    startX: number;
+    startScrollLeft: number;
+  } | null>(null);
 
   const normalizedActive = useMemo(
     () =>
@@ -105,9 +112,10 @@ export function Piano({
   );
 
   const pressKey = useCallback(
-    (key: string, exclusive = false) => {
+    (key: string) => {
       setActiveKeys((prev: Set<string>) => {
-        const next = exclusive ? new Set<string>() : new Set(prev);
+        if (prev.has(key)) return prev;
+        const next = new Set(prev);
         next.add(key);
         return next;
       });
@@ -133,6 +141,46 @@ export function Piano({
     activeKeys.has(id) || normalizedActive.has(id);
 
   useLayoutEffect(() => {
+    const checkTouch = () => {
+      const hasTouch =
+        "ontouchstart" in window ||
+        navigator.maxTouchPoints > 0 ||
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+      setIsTouchDevice(hasTouch);
+    };
+
+    checkTouch();
+
+    const mediaQuery = window.matchMedia("(pointer: coarse)");
+    const handleChange = () => checkTouch();
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+  }, []);
+
+  const updateScrollbar = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const { scrollLeft, scrollWidth, clientWidth } = container;
+    const maxScroll = scrollWidth - clientWidth;
+
+    if (maxScroll <= 0) {
+      setScrollThumbWidth(100);
+      setScrollThumbLeft(0);
+      return;
+    }
+
+    const thumbWidth = (clientWidth / scrollWidth) * 100;
+    const thumbLeft = (scrollLeft / maxScroll) * (100 - thumbWidth);
+
+    setScrollThumbWidth(thumbWidth);
+    setScrollThumbLeft(thumbLeft);
+  }, []);
+
+  useLayoutEffect(() => {
     if (focusOctave == null) return;
     const container = containerRef.current;
     const firstOctaveEl = octaveRefs.current[startingOctave];
@@ -150,6 +198,24 @@ export function Piano({
     container.scrollLeft = left;
   }, [focusOctave, startingOctave]);
 
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    updateScrollbar();
+
+    const handleScroll = () => updateScrollbar();
+    const handleResize = () => updateScrollbar();
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [updateScrollbar, octaves, visibleOctaves]);
+
   const whiteNotes = ["C", "D", "E", "F", "G", "A", "B"];
   const blackNotes = ["C#", "D#", "F#", "G#", "A#"];
   const blackKeyOffsets = [1, 2, 4, 5, 6].map(
@@ -165,101 +231,223 @@ export function Piano({
     return keyEl?.dataset.note ?? null;
   };
 
-  const startDragAtPoint = (x: number, y: number, pointerId: number) => {
-    draggingRef.current = true;
-    const note = noteFromPoint(x, y);
-    const container = containerRef.current;
-    if (container) container.setPointerCapture(pointerId);
-    if (note) {
-      pressKey(note, true);
-      currentNoteRef.current = note;
-    }
-  };
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      const container = containerRef.current;
+      if (!container) return;
 
-  const moveDragToPoint = (x: number, y: number) => {
-    if (!draggingRef.current) return;
-    const note = noteFromPoint(x, y);
-    if (note !== currentNoteRef.current) {
-      if (currentNoteRef.current) releaseKey(currentNoteRef.current);
-      if (note) pressKey(note, true);
-      currentNoteRef.current = note ?? null;
-    }
-  };
+      const note = noteFromPoint(e.clientX, e.clientY);
 
-  const endDrag = (pointerId: number) => {
-    if (currentNoteRef.current) {
-      releaseKey(currentNoteRef.current);
-      currentNoteRef.current = null;
-    }
-    draggingRef.current = false;
+      if (note) {
+        e.preventDefault();
+        container.setPointerCapture(e.pointerId);
+        activePointersRef.current.set(e.pointerId, note);
+        pressKey(note);
+      }
+    },
+    [pressKey],
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      const activeNote = activePointersRef.current.get(e.pointerId);
+
+      if (activeNote !== undefined) {
+        const note = noteFromPoint(e.clientX, e.clientY);
+        if (note !== activeNote) {
+          if (activeNote) releaseKey(activeNote);
+          if (note) {
+            pressKey(note);
+            activePointersRef.current.set(e.pointerId, note);
+          } else {
+            activePointersRef.current.delete(e.pointerId);
+          }
+        }
+      }
+    },
+    [pressKey, releaseKey],
+  );
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      const container = containerRef.current;
+      const activeNote = activePointersRef.current.get(e.pointerId);
+
+      if (activeNote) {
+        releaseKey(activeNote);
+        activePointersRef.current.delete(e.pointerId);
+      }
+
+      if (container) {
+        try {
+          container.releasePointerCapture(e.pointerId);
+        } catch {
+          // Ignore if pointer capture was already released
+        }
+      }
+    },
+    [releaseKey],
+  );
+
+  const handlePointerCancel = useCallback(
+    (e: React.PointerEvent) => {
+      const activeNote = activePointersRef.current.get(e.pointerId);
+      if (activeNote) {
+        releaseKey(activeNote);
+        activePointersRef.current.delete(e.pointerId);
+      }
+    },
+    [releaseKey],
+  );
+
+  const handleScrollbarPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
     const container = containerRef.current;
-    if (container) container.releasePointerCapture(pointerId);
-  };
+    const scrollbar = scrollbarRef.current;
+    if (!container || !scrollbar) return;
+
+    scrollbar.setPointerCapture(e.pointerId);
+    scrollbarDragRef.current = {
+      startX: e.clientX,
+      startScrollLeft: container.scrollLeft,
+    };
+  }, []);
+
+  const handleScrollbarPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!scrollbarDragRef.current) return;
+
+    const container = containerRef.current;
+    const scrollbar = scrollbarRef.current;
+    if (!container || !scrollbar) return;
+
+    const deltaX = e.clientX - scrollbarDragRef.current.startX;
+    const scrollbarWidth = scrollbar.offsetWidth;
+    const { scrollWidth, clientWidth } = container;
+    const maxScroll = scrollWidth - clientWidth;
+
+    const scrollDelta = (deltaX / scrollbarWidth) * scrollWidth;
+    container.scrollLeft = Math.max(
+      0,
+      Math.min(
+        maxScroll,
+        scrollbarDragRef.current.startScrollLeft + scrollDelta,
+      ),
+    );
+  }, []);
+
+  const handleScrollbarPointerUp = useCallback((e: React.PointerEvent) => {
+    const scrollbar = scrollbarRef.current;
+    if (scrollbar) {
+      try {
+        scrollbar.releasePointerCapture(e.pointerId);
+      } catch {
+        // Ignore if pointer capture was already released
+      }
+    }
+    scrollbarDragRef.current = null;
+  }, []);
+
+  const handleScrollbarTrackClick = useCallback((e: React.MouseEvent) => {
+    if (e.target !== scrollbarRef.current) return;
+
+    const container = containerRef.current;
+    const scrollbar = scrollbarRef.current;
+    if (!container || !scrollbar) return;
+
+    const rect = scrollbar.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const scrollbarWidth = scrollbar.offsetWidth;
+    const { scrollWidth, clientWidth } = container;
+    const maxScroll = scrollWidth - clientWidth;
+
+    const targetScrollLeft =
+      (clickX / scrollbarWidth) * scrollWidth - clientWidth / 2;
+    container.scrollLeft = Math.max(0, Math.min(maxScroll, targetScrollLeft));
+  }, []);
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-full overflow-x-auto select-none scrollbar-hide touch-none"
-      onPointerDown={(e) => {
-        e.preventDefault();
-        startDragAtPoint(e.clientX, e.clientY, e.pointerId);
-      }}
-      onPointerMove={(e) => moveDragToPoint(e.clientX, e.clientY)}
-      onPointerUp={(e) => endDrag(e.pointerId)}
-      onPointerCancel={(e) => endDrag(e.pointerId)}
-      onPointerLeave={(e) => {
-        if (draggingRef.current) endDrag(e.pointerId);
-      }}
-    >
+    <div className="relative w-full h-full flex flex-col">
       <div
-        className="flex h-full"
-        style={{ width: `${(octaves / visibleOctaves) * 100}%` }}
+        ref={containerRef}
+        className="flex-1 overflow-x-auto select-none scrollbar-hide"
+        style={{ touchAction: "pan-x" }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
       >
-        {Array.from({ length: octaves }).map((_, i) => {
-          const octave = startingOctave + i;
-          return (
-            <div
-              key={i}
-              ref={(el) => {
-                octaveRefs.current[octave] = el;
-              }}
-              className="relative flex flex-1 h-full"
-            >
-              {whiteNotes.map((n) => {
-                const id = `${n}${octave}`;
-                const label = n === "C" ? id : undefined;
-                return (
-                  <WhiteKey
-                    key={id}
-                    isDown={isKeyDown(id)}
-                    noteLabel={label}
-                    data-note={id}
-                  />
-                );
-              })}
-              <div className="pointer-events-none absolute inset-0 z-20">
-                {blackNotes.map((n, j) => {
+        <div
+          className="flex h-full"
+          style={{ width: `${(octaves / visibleOctaves) * 100}%` }}
+        >
+          {Array.from({ length: octaves }).map((_, i) => {
+            const octave = startingOctave + i;
+            return (
+              <div
+                key={i}
+                ref={(el) => {
+                  octaveRefs.current[octave] = el;
+                }}
+                className="relative flex flex-1 h-full"
+              >
+                {whiteNotes.map((n) => {
                   const id = `${n}${octave}`;
+                  const label = n === "C" ? id : undefined;
                   return (
-                    <BlackKey
+                    <WhiteKey
                       key={id}
                       isDown={isKeyDown(id)}
+                      noteLabel={label}
                       data-note={id}
-                      style={{
-                        left: `${blackKeyOffsets[j]}%`,
-                        width: `${blackWidthPct}%`,
-                        height: `${blackHeightPct}%`,
-                        transform: "translateX(-50%)",
-                        pointerEvents: "auto",
-                      }}
                     />
                   );
                 })}
+                <div className="pointer-events-none absolute inset-0 z-20">
+                  {blackNotes.map((n, j) => {
+                    const id = `${n}${octave}`;
+                    return (
+                      <BlackKey
+                        key={id}
+                        isDown={isKeyDown(id)}
+                        data-note={id}
+                        style={{
+                          left: `${blackKeyOffsets[j]}%`,
+                          width: `${blackWidthPct}%`,
+                          height: `${blackHeightPct}%`,
+                          transform: "translateX(-50%)",
+                          pointerEvents: "auto",
+                        }}
+                      />
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
+
+      {isTouchDevice && scrollThumbWidth < 100 && (
+        <div
+          ref={scrollbarRef}
+          className="relative h-8 bg-zinc-200 cursor-pointer touch-none"
+          onClick={handleScrollbarTrackClick}
+          onPointerDown={handleScrollbarPointerDown}
+          onPointerMove={handleScrollbarPointerMove}
+          onPointerUp={handleScrollbarPointerUp}
+          onPointerCancel={handleScrollbarPointerUp}
+        >
+          <div
+            className="absolute top-1 bottom-1 bg-zinc-500 rounded-full transition-colors hover:bg-zinc-600 active:bg-zinc-700 cursor-grab active:cursor-grabbing"
+            style={{
+              left: `${scrollThumbLeft}%`,
+              width: `${scrollThumbWidth}%`,
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
