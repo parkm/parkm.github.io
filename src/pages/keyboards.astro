@@ -1,8 +1,12 @@
 ---
+export const title = "Keyboards";
+export const description = "Piano keyboards for marking notes and creating chord diagrams";
+export const icon = "🎹";
+
 import Layout from "../layouts/Layout.astro";
 import { Keyboards as KeyboardsComponent } from "../components/Keyboards/Keyboards.tsx";
 ---
 
-<Layout title="Keyboards" description="Piano keyboards for marking notes and labeling">
+<Layout title={title} description={description}>
   <KeyboardsComponent client:only="react" />
 </Layout>

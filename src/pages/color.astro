@@ -1,13 +1,15 @@
 ---
+export const title = "Color";
+export const description = "Shifting colors and waves";
+export const icon = "🌊";
+
 import Layout from "../layouts/Layout.astro";
 ---
 
-<Layout title="Color" description="Shifting colors and waves" disableZoom={true}>
-  <style>
-    html {
-      overscroll-behavior: none;
-    }
-  </style>
+<Layout title={title} description={description} disableZoom={true}>
+  <script is:inline>
+    document.documentElement.style.overscrollBehavior = 'none';
+  </script>
 
   <canvas id="pixiCanvas" class="fixed inset-0 w-screen h-screen block"></canvas>
 

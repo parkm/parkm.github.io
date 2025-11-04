@@ -1,8 +1,12 @@
 ---
+export const title = "Spritesheet";
+export const description = "Spritesheet previewer";
+export const icon = "🎬";
+
 import Layout from "../layouts/Layout.astro";
 import { SpriteSheetViewer } from "../components/SpriteSheet/SpriteSheetViewer.tsx";
 ---
 
-<Layout title="Spritesheet" description="Spritesheet previewer">
+<Layout title={title} description={description}>
   <SpriteSheetViewer client:only="react" />
 </Layout>

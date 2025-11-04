@@ -1,4 +1,8 @@
 ---
+export const title = "Parker Miller - Frontend Developer";
+export const description = "Personal website of Parker Miller";
+export const icon = "🏠";
+
 import Layout from "../layouts/Layout.astro";
 import ProjectCard from "../components/ProjectCard.astro";
 import CanopyLogo from "../components/CanopyLogo.astro";
@@ -31,7 +35,7 @@ const projects: {
 ];
 ---
 
-<Layout title={`${personalInfo.name} - Frontend Developer`} description="Personal website of Parker Miller">
+<Layout title={title} description={description}>
   <header class="hero-section">
     <GameOfLife />
     <div class="hero-backdrop">
@@ -116,8 +120,9 @@ Additionally, contributed to key infrastructure initiatives, including implement
       </div>
     </section>
   </main>
-  <footer>
+  <footer class="flex justify-between items-center">
     <span>© {new Date().getFullYear()} Parker Miller</span>
+    <a href="/map" class="text-sm hover:text-white transition-colors hover:underline">Site Map</a>
   </footer>
 </Layout>
 

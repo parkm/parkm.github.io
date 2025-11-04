@@ -1,8 +1,12 @@
 ---
+export const title = "Breathe";
+export const description = "Box breathing exercise with visual guidance";
+export const icon = "🫁";
+
 import Layout from "../layouts/Layout.astro";
 ---
 
-<Layout title="Breathe" description="For box breathing">
+<Layout title={title} description={description}>
   <div
     class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#3b82f6] animate-gradient relative overflow-hidden"
   >

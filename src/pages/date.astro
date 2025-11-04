@@ -1,10 +1,14 @@
 ---
+export const title = "Date Calculator";
+export const description = "Various date math operations";
+export const icon = "📅";
+
 import Layout from "../layouts/Layout.astro";
 import { DateCalculator } from "../components/DateCalculator";
 import DarkModeToggle from "@/components/DarkModeToggle.astro";
 ---
 
-<Layout title="Date Calculator" description="Various date math operations">
+<Layout title={title} description={description}>
   <main
     class="min-h-screen py-12 px-4 sm:px-6 lg:px-8
            bg-gradient-to-br from-indigo-50 via-white to-pink-50

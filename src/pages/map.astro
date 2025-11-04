@@ -1,7 +1,17 @@
 ---
+export const title = "Site Map";
+export const description = "All pages on the site";
+export const icon = "🗺️";
+
 import Layout from "src/layouts/Layout.astro";
 
 const modules = import.meta.glob("/src/pages/**/*.astro", { eager: true });
+
+type PageModule = {
+  title?: string;
+  description?: string;
+  icon?: string;
+}
 
 let links = Object.keys(modules)
   .filter(
@@ -9,14 +19,17 @@ let links = Object.keys(modules)
       !/\/index\.astro$/.test(filePath) || filePath === "/src/pages/index.astro"
   )
   .map((filePath) => {
+    const module = modules[filePath] as PageModule;
     const href =
       filePath
         .replace("/src/pages", "")
         .replace(/index\.astro$/, "")
         .replace(/\.astro$/, "")
         .replace(/\/$/, "") || "/";
-    const title =
-      filePath === "/src/pages/index.astro"
+    const isRoot = filePath === "/src/pages/index.astro";
+
+    const fallbackTitle =
+      isRoot
         ? "Root"
         : (filePath
             .split("/")
@@ -24,16 +37,21 @@ let links = Object.keys(modules)
             ?.replace(".astro", "")
             .replace(/-/g, " ")
             .replace(/\b\w/g, (c) => c.toUpperCase()) ?? "");
-    return { href, title };
+
+    const pageTitle = module.title || fallbackTitle;
+    const pageDescription = module.description;
+    const pageIcon = module.icon;
+
+    return { href, title: pageTitle, description: pageDescription, icon: pageIcon, isRoot };
   })
   .toSorted((a, b) => {
-    if (a.title === "Root") return -1;
-    if (b.title === "Root") return 1;
+    if (a.isRoot) return -1;
+    if (b.isRoot) return 1;
     return a.title.localeCompare(b.title);
   });
 ---
 
-<Layout title="Index" description="All pages on the site">
+<Layout title={title} description={description}>
   <main class="min-h-screen px-6 py-20 bg-[#13151a] text-[#e5e5e5]">
     <header class="text-center mb-12">
       <h1 class="text-4xl font-bold mb-2 text-white">Site Map</h1>
@@ -41,15 +59,22 @@ let links = Object.keys(modules)
 
     <ul class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 max-w-4xl mx-auto">
       {
-        links.map(({ href, title }) => (
+        links.map(({ href, title, description, icon, isRoot }) => (
           <li>
             <a
               href={href}
               class="block rounded-lg border border-[var(--border-color)] bg-[#1b1d24]
                    hover:bg-[#22242c]
-                   transition-colors text-center py-6 font-medium text-white"
+                   transition-colors py-6 px-4 font-medium text-white h-full
+                   flex flex-col items-center justify-center gap-2"
             >
-              {title}
+              {icon && <span class="text-4xl" aria-hidden="true">{icon}</span>}
+              <span class="text-lg font-semibold">{isRoot ? "Home" : title}</span>
+              {description && (
+                <span class="text-sm text-gray-400 text-center mt-1">
+                  {isRoot ? "" : description}
+                </span>
+              )}
             </a>
           </li>
         ))

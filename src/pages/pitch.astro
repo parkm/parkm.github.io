@@ -1,8 +1,12 @@
 ---
+export const title = "Pitch";
+export const description = "Click and drag to play frequencies";
+export const icon = "🎵";
+
 import Layout from "../layouts/Layout.astro";
 ---
 
-<Layout title="Pitch" description="Click and drag to play frequencies">
+<Layout title={title} description={description}>
   <div class="p-5">
     <!-- Frequency Display -->
     <div
