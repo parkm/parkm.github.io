@@ -2,7 +2,6 @@ import { useState } from "react";
 import { DateTime, Duration } from "luxon";
 
 type Operation = "add" | "diff";
-type DurationUnit = "years" | "months" | "days" | "hours" | "minutes";
 
 interface DateResult {
   type: "date";
@@ -18,13 +17,15 @@ interface DiffResult {
 
 type Result = DateResult | DiffResult | null;
 
-const durationFields: DurationUnit[] = [
+const durationFields = [
   "years",
   "months",
+  "weeks",
   "days",
   "hours",
   "minutes",
-];
+] as const;
+type DurationUnit = (typeof durationFields)[number];
 
 export const DateCalculator = () => {
   const [baseDate, setBaseDate] = useState<string>(
@@ -35,6 +36,7 @@ export const DateCalculator = () => {
   const [duration, setDuration] = useState<Record<DurationUnit, number>>({
     years: 0,
     months: 0,
+    weeks: 0,
     days: 0,
     hours: 0,
     minutes: 0,
