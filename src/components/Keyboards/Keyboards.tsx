@@ -1,10 +1,36 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useQueryState, parseAsFloat, createParser } from "nuqs";
+import { NuqsAdapter } from "nuqs/adapters/react";
 import { initAudio, stopAllNotes, setVolume } from "./piano/synth";
 import { KeyboardSection } from "./KeyboardSection";
 
-export function Keyboards() {
-  const [sections, setSections] = useState([0]);
-  const [globalVolume, setGlobalVolume] = useState(0.1);
+type KeyboardData = {
+  id: number;
+  label: string;
+  keys: string[];
+};
+
+const keyboardArrayParser = createParser({
+  parse: (value: string) => {
+    try {
+      const decoded = atob(value);
+      return JSON.parse(decoded) as KeyboardData[];
+    } catch {
+      return [{ id: 0, label: "", keys: [] }];
+    }
+  },
+  serialize: (value: KeyboardData[]) => btoa(JSON.stringify(value)),
+}).withDefault([{ id: 0, label: "", keys: [] }]);
+
+function KeyboardsContent() {
+  const [sections, setSections] = useQueryState(
+    "sections",
+    keyboardArrayParser,
+  );
+  const [globalVolume, setGlobalVolume] = useQueryState(
+    "vol",
+    parseAsFloat.withDefault(0.1),
+  );
 
   useEffect(() => {
     initAudio();
@@ -17,28 +43,37 @@ export function Keyboards() {
     setVolume(globalVolume);
   }, [globalVolume]);
 
-  const addSection = () => setSections((s) => [...s, s.length]);
+  const addSection = () =>
+    setSections((s) => [
+      ...s,
+      { id: Math.max(...s.map((k) => k.id)) + 1, label: "", keys: [] },
+    ]);
 
   const addKeyboardAfter = (id: number) => {
     setSections((prevSections) => {
-      const index = prevSections.findIndex((sectionId) => sectionId === id);
+      const index = prevSections.findIndex((section) => section.id === id);
       if (index === -1) return prevSections;
 
-      // Create a new array with a new ID inserted after the current one
       const newSections = [...prevSections];
-      // Use the max existing ID + 1 to ensure uniqueness
-      const newId = Math.max(...prevSections) + 1;
-      newSections.splice(index + 1, 0, newId);
+      const newId = Math.max(...prevSections.map((k) => k.id)) + 1;
+      newSections.splice(index + 1, 0, { id: newId, label: "", keys: [] });
       return newSections;
     });
   };
 
   const removeKeyboard = (id: number) => {
     setSections((prevSections) => {
-      // Don't remove if it's the last keyboard
       if (prevSections.length <= 1) return prevSections;
-      return prevSections.filter((sectionId) => sectionId !== id);
+      return prevSections.filter((section) => section.id !== id);
     });
+  };
+
+  const updateKeyboard = (id: number, label: string, keys: string[]) => {
+    setSections((prevSections) =>
+      prevSections.map((section) =>
+        section.id === id ? { ...section, label, keys } : section,
+      ),
+    );
   };
 
   return (
@@ -75,15 +110,26 @@ export function Keyboards() {
         </div>
       </div>
       <div className="grid grid-cols-1 gap-2">
-        {sections.map((id) => (
+        {sections.map((section) => (
           <KeyboardSection
-            key={id}
-            id={id}
+            key={section.id}
+            id={section.id}
+            label={section.label}
+            markedKeys={section.keys}
             onAdd={addKeyboardAfter}
             onRemove={removeKeyboard}
+            onUpdate={updateKeyboard}
           />
         ))}
       </div>
     </div>
+  );
+}
+
+export function Keyboards() {
+  return (
+    <NuqsAdapter>
+      <KeyboardsContent />
+    </NuqsAdapter>
   );
 }

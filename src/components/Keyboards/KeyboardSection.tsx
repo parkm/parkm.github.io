@@ -4,31 +4,34 @@ import { PianoKeyboard } from "./piano/Keyboard";
 
 export function KeyboardSection({
   id,
+  label,
+  markedKeys,
   onAdd,
   onRemove,
+  onUpdate,
 }: {
   id: number;
+  label: string;
+  markedKeys: string[];
   onAdd: (id: number) => void;
   onRemove: (id: number) => void;
+  onUpdate: (id: number, label: string, keys: string[]) => void;
 }) {
   const [octaves, setOctaves] = useState(3);
   const [startOctave, setStartOctave] = useState(3);
-  const [markedKeys, setMarkedKeys] = useState<string[]>([]);
-  const [label, setLabel] = useState("");
   const [optionsCollapsed, setOptionsCollapsed] = useState(true);
 
   useEffect(() => stopAllNotes, []);
 
   const handleKeyClick = (key: string) => {
-    setMarkedKeys((prevMarkedKeys) =>
-      prevMarkedKeys.includes(key)
-        ? prevMarkedKeys.filter((k) => k !== key)
-        : [...prevMarkedKeys, key],
-    );
+    const newKeys = markedKeys.includes(key)
+      ? markedKeys.filter((k) => k !== key)
+      : [...markedKeys, key];
+    onUpdate(id, label, newKeys);
   };
 
   const clearMarkedKeys = () => {
-    setMarkedKeys([]);
+    onUpdate(id, label, []);
   };
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -97,10 +100,10 @@ export function KeyboardSection({
     const newNote = `${note}${newOctave}`;
 
     // Create the new chord with rotation
-    const newMarkedKeys = sortedKeys.slice(0, -1); // Remove the highest note
-    newMarkedKeys.unshift(newNote); // Add the new note at the beginning
+    const newMarkedKeys = sortedKeys.slice(0, -1);
+    newMarkedKeys.unshift(newNote);
 
-    setMarkedKeys(newMarkedKeys);
+    onUpdate(id, label, newMarkedKeys);
   };
 
   const applyRightInversion = () => {
@@ -149,10 +152,10 @@ export function KeyboardSection({
     const newNote = `${note}${newOctave}`;
 
     // Create the new chord with rotation
-    const newMarkedKeys = sortedKeys.slice(1); // Remove the lowest note
-    newMarkedKeys.push(newNote); // Add the new note at the end
+    const newMarkedKeys = sortedKeys.slice(1);
+    newMarkedKeys.push(newNote);
 
-    setMarkedKeys(newMarkedKeys);
+    onUpdate(id, label, newMarkedKeys);
   };
 
   return (
@@ -163,7 +166,7 @@ export function KeyboardSection({
           id="label"
           type="text"
           value={label}
-          onChange={(e) => setLabel(e.target.value)}
+          onChange={(e) => onUpdate(id, e.target.value, markedKeys)}
           className="p-1 border border-gray-600 rounded h-[26px] font-medium text-base w-full max-w-[200px] bg-gray-700 text-white placeholder-gray-400 focus:ring-1 focus:ring-indigo-400 focus:border-indigo-500 focus:outline-none"
           placeholder="Label"
         />
