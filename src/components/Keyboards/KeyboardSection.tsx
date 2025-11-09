@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { stopAllNotes } from "./piano/synth";
+import { stopAllNotes, playNote } from "./piano/synth";
 import { PianoKeyboard } from "./piano/Keyboard";
 
 export function KeyboardSection({
@@ -29,6 +29,26 @@ export function KeyboardSection({
 
   const clearMarkedKeys = () => {
     setMarkedKeys([]);
+  };
+
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const startPlaying = () => {
+    if (isPlaying || markedKeys.length === 0) return;
+    setIsPlaying(true);
+    markedKeys.forEach((key) => {
+      const match = key.match(/([A-G]#?)(\d+)/);
+      if (match) {
+        const [_, note, octave] = match;
+        playNote(note, parseInt(octave));
+      }
+    });
+  };
+
+  const stopPlaying = () => {
+    if (!isPlaying) return;
+    setIsPlaying(false);
+    stopAllNotes();
   };
 
   const applyLeftInversion = () => {
@@ -164,6 +184,32 @@ export function KeyboardSection({
           </div>
 
           <div className="flex flex-col border-l border-gray-700 pl-1 pr-1 min-w-[82px] justify-end">
+            {/* Play button */}
+            <div className="flex mb-1">
+              <button
+                onPointerDown={startPlaying}
+                onPointerUp={stopPlaying}
+                onPointerLeave={stopPlaying}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    startPlaying();
+                  }
+                }}
+                onKeyUp={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    stopPlaying();
+                  }
+                }}
+                className="flex items-center justify-center w-full h-5 bg-green-600 hover:bg-green-700 text-white rounded text-xs transition-colors duration-200 disabled:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Hold to play all marked keys as a chord"
+                disabled={markedKeys.length === 0}
+              >
+                Play
+              </button>
+            </div>
+
             {/* Clear button */}
             <div className="flex mb-1">
               <button
