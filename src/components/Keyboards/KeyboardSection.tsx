@@ -54,11 +54,38 @@ export function KeyboardSection({
     stopAllNotes();
   };
 
-  const applyLeftInversion = () => {
-    if (markedKeys.length <= 1) return;
+  const playChord = (keys: string[], duration = 200) => {
+    stopAllNotes();
+    keys.forEach((key) => {
+      const match = key.match(/([A-G]#?)(\d+)/);
+      if (match) {
+        const [, note, octave] = match;
+        playNote(note, parseInt(octave));
+      }
+    });
 
-    // Sort notes by pitch
-    const sortedKeys = [...markedKeys].sort((a, b) => {
+    setTimeout(() => {
+      stopAllNotes();
+    }, duration);
+  };
+
+  const sortKeysByPitch = (keys: string[]) => {
+    const noteOrder: Record<string, number> = {
+      C: 0,
+      "C#": 1,
+      D: 2,
+      "D#": 3,
+      E: 4,
+      F: 5,
+      "F#": 6,
+      G: 7,
+      "G#": 8,
+      A: 9,
+      "A#": 10,
+      B: 11,
+    };
+
+    return [...keys].sort((a, b) => {
       const matchA = a.match(/([A-G]#?)(\d+)/);
       const matchB = b.match(/([A-G]#?)(\d+)/);
       if (!matchA || !matchB) return 0;
@@ -68,99 +95,50 @@ export function KeyboardSection({
 
       if (octaveA !== octaveB) return octaveA - octaveB;
 
-      // Same octave, compare notes (C, C#, D, D#, E, F, F#, G, G#, A, A#, B)
-      const noteOrder: Record<string, number> = {
-        C: 0,
-        "C#": 1,
-        D: 2,
-        "D#": 3,
-        E: 4,
-        F: 5,
-        "F#": 6,
-        G: 7,
-        "G#": 8,
-        A: 9,
-        "A#": 10,
-        B: 11,
-      };
       return noteOrder[matchA[1]] - noteOrder[matchB[1]];
     });
+  };
 
-    // Get the highest note
+  const applyLeftInversion = () => {
+    if (markedKeys.length <= 1) return;
+
+    const sortedKeys = sortKeysByPitch(markedKeys);
     const highestNote = sortedKeys[sortedKeys.length - 1];
 
-    // Extract octave and note
     const match = highestNote.match(/([A-G]#?)(\d+)/);
     if (!match) return;
 
-    const [_, note, octave] = match;
-    const newOctave = parseInt(octave) - 1;
+    const [, note, octave] = match;
+    const newNote = `${note}${parseInt(octave) - 1}`;
 
-    // Create the inverted note (highest note moved down an octave)
-    const newNote = `${note}${newOctave}`;
-
-    // Create the new chord with rotation
     const newMarkedKeys = sortedKeys.slice(0, -1);
     newMarkedKeys.unshift(newNote);
 
     onUpdate(id, label, newMarkedKeys);
+    playChord(newMarkedKeys);
   };
 
   const applyRightInversion = () => {
     if (markedKeys.length <= 1) return;
 
-    // Sort notes by pitch
-    const sortedKeys = [...markedKeys].sort((a, b) => {
-      const matchA = a.match(/([A-G]#?)(\d+)/);
-      const matchB = b.match(/([A-G]#?)(\d+)/);
-      if (!matchA || !matchB) return 0;
-
-      const octaveA = parseInt(matchA[2]);
-      const octaveB = parseInt(matchB[2]);
-
-      if (octaveA !== octaveB) return octaveA - octaveB;
-
-      // Same octave, compare notes (C, C#, D, D#, E, F, F#, G, G#, A, A#, B)
-      const noteOrder: Record<string, number> = {
-        C: 0,
-        "C#": 1,
-        D: 2,
-        "D#": 3,
-        E: 4,
-        F: 5,
-        "F#": 6,
-        G: 7,
-        "G#": 8,
-        A: 9,
-        "A#": 10,
-        B: 11,
-      };
-      return noteOrder[matchA[1]] - noteOrder[matchB[1]];
-    });
-
-    // Get the lowest note
+    const sortedKeys = sortKeysByPitch(markedKeys);
     const lowestNote = sortedKeys[0];
 
-    // Extract octave and note
     const match = lowestNote.match(/([A-G]#?)(\d+)/);
     if (!match) return;
 
-    const [_, note, octave] = match;
-    const newOctave = parseInt(octave) + 1;
+    const [, note, octave] = match;
+    const newNote = `${note}${parseInt(octave) + 1}`;
 
-    // Create the inverted note (lowest note moved up an octave)
-    const newNote = `${note}${newOctave}`;
-
-    // Create the new chord with rotation
     const newMarkedKeys = sortedKeys.slice(1);
     newMarkedKeys.push(newNote);
 
     onUpdate(id, label, newMarkedKeys);
+    playChord(newMarkedKeys);
   };
 
   return (
     <div className="keyboard-section bg-gray-800 p-3 rounded-lg shadow-lg border border-gray-700">
-      {/* Label input moved above keyboard */}
       <div className="mb-2">
         <input
           id="label"
@@ -173,9 +151,7 @@ export function KeyboardSection({
       </div>
 
       <div className="flex flex-row gap-0">
-        {/* Container for keyboard and label */}
         <div className="flex-grow flex overflow-hidden rounded-md bg-gray-900">
-          {/* Piano Section - Scrollable */}
           <div className="overflow-x-auto">
             <PianoKeyboard
               octaves={octaves}
@@ -187,7 +163,6 @@ export function KeyboardSection({
           </div>
 
           <div className="flex flex-col border-l border-gray-700 pl-1 pr-1 min-w-[82px] justify-end">
-            {/* Play button */}
             <div className="flex mb-1">
               <button
                 onPointerDown={startPlaying}
@@ -213,7 +188,6 @@ export function KeyboardSection({
               </button>
             </div>
 
-            {/* Clear button */}
             <div className="flex mb-1">
               <button
                 onClick={clearMarkedKeys}
@@ -224,7 +198,6 @@ export function KeyboardSection({
               </button>
             </div>
 
-            {/* Inversion buttons */}
             <div className="flex mb-1">
               <button
                 onClick={applyLeftInversion}
@@ -242,7 +215,6 @@ export function KeyboardSection({
               </button>
             </div>
 
-            {/* Add and Remove buttons */}
             <div className="flex">
               <button
                 onClick={() => onAdd(id)}
@@ -262,7 +234,6 @@ export function KeyboardSection({
           </div>
         </div>
 
-        {/* Collapse Button */}
         <button
           onClick={() => setOptionsCollapsed(!optionsCollapsed)}
           className="flex-shrink-0 flex items-center justify-center px-1 bg-gradient-to-b from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 text-gray-300 border-l border-gray-700 transition-all duration-200"
@@ -273,7 +244,6 @@ export function KeyboardSection({
           </div>
         </button>
 
-        {/* Controls Section */}
         {!optionsCollapsed && (
           <div className="flex-shrink-0 w-auto max-w-xs px-2 border-l border-gray-700 bg-gray-800">
             <div className="flex flex-row flex-wrap gap-1 items-start">
