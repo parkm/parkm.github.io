@@ -6,6 +6,20 @@ import {
   createParser,
 } from "nuqs";
 import { NuqsAdapter } from "nuqs/adapters/react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { initAudio, stopAllNotes, setVolume } from "./piano/synth";
 import { KeyboardSection } from "./KeyboardSection";
 
@@ -89,6 +103,23 @@ function KeyboardsContent() {
     );
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setSections((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
   return (
     <div className="keyboards-container p-1 bg-gray-900 min-h-screen">
       <div className="sticky top-0 z-10 bg-gray-800 p-2 rounded-lg shadow-lg mb-2 flex flex-wrap items-center gap-1">
@@ -164,21 +195,32 @@ function KeyboardsContent() {
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-2">
-        {sections.map((section) => (
-          <KeyboardSection
-            key={section.id}
-            id={section.id}
-            label={section.label}
-            markedKeys={section.keys}
-            octaves={globalOctaves}
-            startOctave={globalStartOctave}
-            onAdd={addKeyboardAfter}
-            onRemove={removeKeyboard}
-            onUpdate={updateKeyboard}
-          />
-        ))}
-      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={sections.map((s) => s.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="grid grid-cols-1 gap-2">
+            {sections.map((section) => (
+              <KeyboardSection
+                key={section.id}
+                id={section.id}
+                label={section.label}
+                markedKeys={section.keys}
+                octaves={globalOctaves}
+                startOctave={globalStartOctave}
+                onAdd={addKeyboardAfter}
+                onRemove={removeKeyboard}
+                onUpdate={updateKeyboard}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 }
