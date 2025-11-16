@@ -7,6 +7,8 @@ export function KeyboardSection({
   id,
   label,
   markedKeys,
+  octaves,
+  startOctave,
   onAdd,
   onRemove,
   onUpdate,
@@ -14,12 +16,12 @@ export function KeyboardSection({
   id: number;
   label: string;
   markedKeys: string[];
+  octaves: number;
+  startOctave: number;
   onAdd: (id: number) => void;
   onRemove: (id: number) => void;
   onUpdate: (id: number, label: string, keys: string[]) => void;
 }) {
-  const [octaves, setOctaves] = useState(3);
-  const [startOctave, setStartOctave] = useState(3);
   const [optionsCollapsed, setOptionsCollapsed] = useState(true);
 
   useEffect(() => stopAllNotes, []);
@@ -269,53 +271,9 @@ export function KeyboardSection({
         {!optionsCollapsed && (
           <div className="flex-shrink-0 w-auto max-w-xs px-2 border-l border-gray-700 bg-gray-800">
             <div className="flex flex-row flex-wrap gap-1 items-start">
-              <div className="min-w-[60px] flex-grow-0">
-                <label
-                  htmlFor="octaves"
-                  className="text-[9px] font-medium block text-gray-300"
-                >
-                  Octaves:
-                </label>
-                <input
-                  id="octaves"
-                  type="number"
-                  min="1"
-                  max="7"
-                  value={octaves}
-                  onChange={(e) =>
-                    setOctaves(
-                      Math.max(1, Math.min(7, parseInt(e.target.value) || 1)),
-                    )
-                  }
-                  className="p-0.5 border border-gray-600 rounded w-full text-xs text-center h-[22px] bg-gray-700 text-white"
-                />
-              </div>
-
-              <div className="min-w-[60px] flex-grow-0">
-                <label
-                  htmlFor="startOctave"
-                  className="text-[9px] font-medium block text-gray-300"
-                >
-                  Start:
-                </label>
-                <input
-                  id="startOctave"
-                  type="number"
-                  min="0"
-                  max="8"
-                  value={startOctave}
-                  onChange={(e) =>
-                    setStartOctave(
-                      Math.max(0, Math.min(8, parseInt(e.target.value) || 4)),
-                    )
-                  }
-                  className="p-0.5 border border-gray-600 rounded w-full text-xs text-center h-[22px] bg-gray-700 text-white"
-                />
-              </div>
-
               {markedKeys.length > 0 && (
-                <div className="marked-keys-display p-1 border border-gray-600 rounded bg-gray-700 text-[9px] flex-shrink-0 max-w-[100px] overflow-hidden self-end h-[22px] flex items-center">
-                  <p className="font-medium truncate text-gray-300">
+                <div className="marked-keys-display p-1 border border-gray-600 rounded bg-gray-700 text-[9px] flex-shrink-0 max-w-[100px] self-end flex items-center">
+                  <p className="font-medium text-gray-300">
                     {markedKeys.join(", ")}
                   </p>
                 </div>

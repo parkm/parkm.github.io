@@ -1,5 +1,10 @@
 import { useEffect } from "react";
-import { useQueryState, parseAsFloat, createParser } from "nuqs";
+import {
+  useQueryState,
+  parseAsFloat,
+  parseAsInteger,
+  createParser,
+} from "nuqs";
 import { NuqsAdapter } from "nuqs/adapters/react";
 import { initAudio, stopAllNotes, setVolume } from "./piano/synth";
 import { KeyboardSection } from "./KeyboardSection";
@@ -30,6 +35,14 @@ function KeyboardsContent() {
   const [globalVolume, setGlobalVolume] = useQueryState(
     "vol",
     parseAsFloat.withDefault(0.1),
+  );
+  const [globalOctaves, setGlobalOctaves] = useQueryState(
+    "octaves",
+    parseAsInteger.withDefault(3),
+  );
+  const [globalStartOctave, setGlobalStartOctave] = useQueryState(
+    "start",
+    parseAsInteger.withDefault(3),
   );
 
   useEffect(() => {
@@ -101,6 +114,48 @@ function KeyboardsContent() {
               className="w-16 accent-indigo-500 h-3"
             />
           </div>
+          <div className="flex items-center">
+            <label
+              htmlFor="globalOctaves"
+              className="mr-1 text-[9px] font-medium text-gray-300"
+            >
+              Octaves:
+            </label>
+            <input
+              id="globalOctaves"
+              type="number"
+              min="1"
+              max="7"
+              value={globalOctaves}
+              onChange={(e) =>
+                setGlobalOctaves(
+                  Math.max(1, Math.min(7, parseInt(e.target.value) || 1)),
+                )
+              }
+              className="p-0.5 border border-gray-600 rounded w-10 text-xs text-center h-5 bg-gray-700 text-white"
+            />
+          </div>
+          <div className="flex items-center">
+            <label
+              htmlFor="globalStartOctave"
+              className="mr-1 text-[9px] font-medium text-gray-300"
+            >
+              Start:
+            </label>
+            <input
+              id="globalStartOctave"
+              type="number"
+              min="0"
+              max="8"
+              value={globalStartOctave}
+              onChange={(e) =>
+                setGlobalStartOctave(
+                  Math.max(0, Math.min(8, parseInt(e.target.value) || 4)),
+                )
+              }
+              className="p-0.5 border border-gray-600 rounded w-10 text-xs text-center h-5 bg-gray-700 text-white"
+            />
+          </div>
           <button
             onClick={addSection}
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded text-[9px] flex items-center transition-colors duration-200"
@@ -116,6 +171,8 @@ function KeyboardsContent() {
             id={section.id}
             label={section.label}
             markedKeys={section.keys}
+            octaves={globalOctaves}
+            startOctave={globalStartOctave}
             onAdd={addKeyboardAfter}
             onRemove={removeKeyboard}
             onUpdate={updateKeyboard}
