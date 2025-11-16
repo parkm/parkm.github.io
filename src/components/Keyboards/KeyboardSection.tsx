@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { Chord } from "tonal";
 import { stopAllNotes, playNote } from "./piano/synth";
 import { PianoKeyboard } from "./piano/Keyboard";
 
@@ -137,6 +138,27 @@ export function KeyboardSection({
     playChord(newMarkedKeys);
   };
 
+  const chordNamePlaceholder = useMemo(() => {
+    if (markedKeys.length === 0) return "Label";
+
+    const sortedKeys = sortKeysByPitch(markedKeys);
+
+    const notes = sortedKeys
+      .map((key) => {
+        const match = key.match(/([A-G]#?)(\d+)/);
+        return match ? match[1] : null;
+      })
+      .filter((note): note is string => note !== null);
+
+    const uniqueNotes = Array.from(new Set(notes));
+    if (uniqueNotes.length === 0) return "Unknown";
+
+    const detectedChords = Chord.detect(notes);
+    return detectedChords.length > 0
+      ? detectedChords[0]
+      : uniqueNotes.join(" ");
+  }, [markedKeys]);
+
   return (
     <div className="keyboard-section bg-gray-800 p-3 rounded-lg shadow-lg border border-gray-700">
       <div className="mb-2">
@@ -146,7 +168,7 @@ export function KeyboardSection({
           value={label}
           onChange={(e) => onUpdate(id, e.target.value, markedKeys)}
           className="p-1 border border-gray-600 rounded h-[26px] font-medium text-base w-full max-w-[200px] bg-gray-700 text-white placeholder-gray-400 focus:ring-1 focus:ring-indigo-400 focus:border-indigo-500 focus:outline-none"
-          placeholder="Label"
+          placeholder={chordNamePlaceholder}
         />
       </div>
 
