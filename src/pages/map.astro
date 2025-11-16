@@ -13,37 +13,39 @@ type PageModule = {
   icon?: string;
 }
 
-let links = Object.keys(modules)
-  .filter(
-    (filePath) =>
-      !/\/index\.astro$/.test(filePath) || filePath === "/src/pages/index.astro"
-  )
-  .map((filePath) => {
-    const module = modules[filePath] as PageModule;
-    const href =
-      filePath
-        .replace("/src/pages", "")
-        .replace(/index\.astro$/, "")
-        .replace(/\.astro$/, "")
-        .replace(/\/$/, "") || "/";
-    const isRoot = filePath === "/src/pages/index.astro";
+let links = [...Object.keys(modules)
+    .filter(
+      (filePath) =>
+        !/\/index\.astro$/.test(filePath) || filePath === "/src/pages/index.astro"
+    )
+    .map((filePath) => {
+      const module = modules[filePath] as PageModule;
+      const href =
+        filePath
+          .replace("/src/pages", "")
+          .replace(/index\.astro$/, "")
+          .replace(/\.astro$/, "")
+          .replace(/\/$/, "") || "/";
+      const isRoot = filePath === "/src/pages/index.astro";
 
-    const fallbackTitle =
-      isRoot
-        ? "Root"
-        : (filePath
-            .split("/")
-            .pop()
-            ?.replace(".astro", "")
-            .replace(/-/g, " ")
-            .replace(/\b\w/g, (c) => c.toUpperCase()) ?? "");
+      const fallbackTitle =
+        isRoot
+          ? "Root"
+          : (filePath
+              .split("/")
+              .pop()
+              ?.replace(".astro", "")
+              .replace(/-/g, " ")
+              .replace(/\b\w/g, (c) => c.toUpperCase()) ?? "");
 
-    const pageTitle = module.title || fallbackTitle;
-    const pageDescription = module.description;
-    const pageIcon = module.icon;
+      const pageTitle = module.title || fallbackTitle;
+      const pageDescription = module.description;
+      const pageIcon = module.icon;
 
-    return { href, title: pageTitle, description: pageDescription, icon: pageIcon, isRoot };
-  })
+      return { href, title: pageTitle, description: pageDescription, icon: pageIcon, isRoot };
+    }),
+    { href: "/partygif", title: "PartyGif", description: "Create party gifs client-side", icon: "🎉", isRoot: false },
+  ]
   .toSorted((a, b) => {
     if (a.isRoot) return -1;
     if (b.isRoot) return 1;
