@@ -1,0 +1,58 @@
+---
+---
+
+<canvas id="snakeCrt"></canvas>
+
+<script>
+  import { SnakeCrt } from "./SnakeCrt.ts";
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    const heroSection = document.querySelector(".hero-section") as HTMLElement;
+    const canvas = document.getElementById("snakeCrt") as HTMLCanvasElement;
+    if (!canvas || !heroSection) {
+      console.error("Required elements not found");
+      return;
+    }
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const game = new SnakeCrt({ cellSize: 24, updateInterval: 100 });
+    await game.init(canvas);
+    game.start();
+
+    const handleResize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      game.resize();
+    };
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+
+    window.addEventListener("cellSizeChange", ((event: CustomEvent) => {
+      game.setCellSize(event.detail);
+    }) as EventListener);
+
+    window.addEventListener("updateIntervalChange", ((event: CustomEvent) => {
+      game.setUpdateInterval(event.detail);
+    }) as EventListener);
+
+    window.addEventListener("highPerformanceModeChange", ((event: CustomEvent) => {
+      game.setHighPerformanceMode(event.detail);
+    }) as EventListener);
+  });
+</script>
+
+<style>
+  #snakeCrt {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 1;
+    z-index: 10;
+    background: black;
+  }
+</style>
+
