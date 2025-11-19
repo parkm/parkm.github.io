@@ -1,4 +1,6 @@
 ---
+import Tailwind from "./Tailwind.astro";
+
 interface Props {
 	title: string;
 	description: string;
@@ -44,36 +46,4 @@ const viewportContent = disableZoom
 		<slot />
 	</body>
 </html>
-<style is:global>
-    @import "tailwindcss";
-	@custom-variant dark (&:where(.dark, .dark *));
-
-	:root {
-		--accent: 136, 58, 234;
-		--accent-light: 224, 204, 250;
-		--accent-dark: 49, 10, 101;
-		--border-color: #464352;
-		--p-text-color: #e5e5e5;
-		--accent-gradient: linear-gradient(
-			45deg,
-			rgb(var(--accent)),
-			rgb(var(--accent-light)) 30%,
-			white 60%
-		);
-	}
-	html {
-		font-family: system-ui, sans-serif;
-		background: #13151a;
-	}
-	code {
-		font-family:
-			Menlo,
-			Monaco,
-			Lucida Console,
-			Liberation Mono,
-			DejaVu Sans Mono,
-			Bitstream Vera Sans Mono,
-			Courier New,
-			monospace;
-	}
-</style>
+<Tailwind />

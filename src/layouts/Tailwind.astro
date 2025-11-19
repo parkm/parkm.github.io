@@ -1,0 +1,42 @@
+<style is:global>
+	@import "tailwindcss";
+	@custom-variant dark (&:where(.dark, .dark *));
+
+	@theme {
+		--color-primary: rgb(136 58 234);
+		--color-background: #f8f9fa;
+		--color-foreground: #1a1a1a;
+
+		--color-dock-splitter: rgba(100, 116, 139, 0.4);
+		--color-dock-splitter-hover: rgba(100, 116, 139, 0.6);
+		--color-dock-splitter-dot: rgba(30, 41, 59, 0.7);
+	}
+	.dark {
+		--color-background: #13151a;
+		--color-foreground: #e5e5e5;
+
+		--color-dock-splitter: rgba(148, 163, 184, 0.4);
+		--color-dock-splitter-hover: rgba(148, 163, 184, 0.6);
+		--color-dock-splitter-dot: rgba(226, 232, 240, 0.8);
+	}
+
+	/*
+	To implement new themes:
+	Add data-theme="my-theme" to an element to make all its children use the theme
+
+	[data-theme="my-theme"] {
+		--color-background: #f0f8f8;
+		--color-foreground: #0a2020;
+	}
+	.dark [data-theme="my-theme"] {
+		--color-background: #0a0c0e;
+		--color-foreground: #d0f4f0;
+	}
+	*/
+
+	html {
+		font-family: system-ui, sans-serif;
+		background: var(--color-background);
+		color: var(--color-foreground);
+	}
+</style>

@@ -1,0 +1,18 @@
+---
+export const title = "Desktop UI Demo";
+export const description = "A demo of a desktop UI for desktop style applications";
+export const icon = "🖥️";
+import Layout from "../layouts/Layout.astro";
+import DarkModeToggle from "../components/DarkModeToggle.astro";
+import { DesktopUiDemo } from "../components/desktop-ui/DesktopUiDemo";
+---
+
+<Layout title={title} description={description}>
+    <div>
+        <DesktopUiDemo client:only="react" />
+    </div>
+    <div class="fixed bottom-5 right-5">
+        <DarkModeToggle id="dark-mode-toggle" />
+    </div>
+</Layout>
+
