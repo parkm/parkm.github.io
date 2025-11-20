@@ -8,7 +8,7 @@ import {
   type TouchEvent as ReactTouchEvent,
 } from "react";
 
-const SPLITTER_SIZE = 6;
+const SPLITTER_SIZE = 4;
 
 type DockSide = "left" | "right" | "top" | "bottom";
 
@@ -158,15 +158,11 @@ export function QuadDock({
   );
 
   const toggleCollapse = (side: DockSide) => {
-    setCollapsed((c) => ({
-      ...c,
-      [side]: !c[side],
-    }));
+    setCollapsed((c) => ({ ...c, [side]: !c[side] }));
   };
 
   const startDrag =
-    (side: DockSide) =>
-    (e: ReactMouseEvent | ReactTouchEvent): void => {
+    (side: DockSide) => (e: ReactMouseEvent | ReactTouchEvent) => {
       dragRef.current = {
         active: true,
         dock: side,
@@ -187,9 +183,16 @@ export function QuadDock({
       const y = pt.clientY - rect.top;
 
       let { left, right, top, bottom } = sizes;
-
       const side = dragRef.current.dock;
-      const expand = (dist: number, min: number, side: DockSide) => {
+
+      const collapseIfSmall = (dist: number, min: number, side: DockSide) => {
+        if (dist <= min * 0.4) {
+          dragRef.current.collapsedDrag = true;
+          setCollapsed((c) => ({ ...c, [side]: true }));
+        }
+      };
+
+      const expandIfLarge = (dist: number, min: number, side: DockSide) => {
         if (dragRef.current.collapsedDrag && dist > min) {
           dragRef.current.collapsedDrag = false;
           setCollapsed((c) => ({ ...c, [side]: false }));
@@ -197,21 +200,28 @@ export function QuadDock({
       };
 
       if (side === "left") {
-        expand(x, leftMinSize, "left");
+        collapseIfSmall(x, leftMinSize, "left");
+        expandIfLarge(x, leftMinSize, "left");
         if (!dragRef.current.collapsedDrag) left = x;
       }
+
       if (side === "right") {
         const d = rect.width - x;
-        expand(d, rightMinSize, "right");
+        collapseIfSmall(d, rightMinSize, "right");
+        expandIfLarge(d, rightMinSize, "right");
         if (!dragRef.current.collapsedDrag) right = d;
       }
+
       if (side === "top") {
-        expand(y, topMinSize, "top");
+        collapseIfSmall(y, topMinSize, "top");
+        expandIfLarge(y, topMinSize, "top");
         if (!dragRef.current.collapsedDrag) top = y;
       }
+
       if (side === "bottom") {
         const d = rect.height - y;
-        expand(d, bottomMinSize, "bottom");
+        collapseIfSmall(d, bottomMinSize, "bottom");
+        expandIfLarge(d, bottomMinSize, "bottom");
         if (!dragRef.current.collapsedDrag) bottom = d;
       }
 
@@ -235,9 +245,7 @@ export function QuadDock({
 
     window.addEventListener("mousemove", moveListener);
     window.addEventListener("mouseup", endListener);
-    window.addEventListener("touchmove", moveListener, {
-      passive: false,
-    });
+    window.addEventListener("touchmove", moveListener, { passive: false });
     window.addEventListener("touchend", endListener);
 
     return () => {
@@ -265,7 +273,6 @@ export function QuadDock({
     horizontal: boolean;
   }) => {
     const cursor = horizontal ? "ns-resize" : "ew-resize";
-
     return (
       <div
         onMouseDown={startDrag(side)}
@@ -274,22 +281,17 @@ export function QuadDock({
         className={`
           ${horizontal ? `h-[${SPLITTER_SIZE}px]` : `w-[${SPLITTER_SIZE}px]`}
           bg-dock-splitter backdrop-blur flex items-center justify-center
-
           transition-all duration-200 ease-out
           hover:bg-dock-splitter-hover hover:brightness-110
         `}
         style={{ cursor }}
       >
         <div
-          className={`
-            flex ${horizontal ? "flex-row" : "flex-col"} gap-[2px]
-            transition-opacity duration-200
-            group-hover:opacity-80
-          `}
+          className={`flex ${horizontal ? "flex-row" : "flex-col"} gap-[2px] transition-opacity duration-200`}
         >
-          <div className="w-1.5 h-1.5 bg-dock-splitter-dot rounded-full transition-colors duration-200" />
-          <div className="w-1.5 h-1.5 bg-dock-splitter-dot rounded-full transition-colors duration-200" />
-          <div className="w-1.5 h-1.5 bg-dock-splitter-dot rounded-full transition-colors duration-200" />
+          <div className="w-1.5 h-1.5 bg-dock-splitter-dot rounded-full" />
+          <div className="w-1.5 h-1.5 bg-dock-splitter-dot rounded-full" />
+          <div className="w-1.5 h-1.5 bg-dock-splitter-dot rounded-full" />
         </div>
       </div>
     );
@@ -306,11 +308,7 @@ export function QuadDock({
   return (
     <div
       ref={containerRef}
-      className={`
-        h-full w-full overflow-hidden bg-background
-        backdrop-blur
-        ${className}
-      `}
+      className={`h-full w-full overflow-hidden bg-background backdrop-blur ${className}`}
     >
       <div
         className="grid h-full w-full"
