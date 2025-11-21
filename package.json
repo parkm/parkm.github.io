@@ -17,14 +17,17 @@
   "dependencies": {
     "@astrojs/react": "^4.3.1",
     "@dnd-kit/sortable": "^10.0.0",
+    "@radix-ui/react-menubar": "^1.1.16",
     "@tailwindcss/vite": "^4.1.13",
     "astro": "^5.13.7",
+    "lucide-react": "^0.554.0",
     "luxon": "^3.7.2",
     "nuqs": "^2.7.2",
     "pixi-filters": "^6.1.4",
     "pixi.js": "^8.13.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.13",
     "tonal": "^6.4.2",
     "tone": "^15.1.22"

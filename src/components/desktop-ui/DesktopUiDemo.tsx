@@ -1,9 +1,32 @@
 import { QuadDock } from "./Dock";
+import {
+  Menubar,
+  MenubarTrigger,
+  MenubarMenu,
+  MenubarContent,
+  MenubarItem,
+  MenubarShortcut,
+  MenubarSeparator,
+} from "./Menubar";
 
 export function DesktopUiDemo() {
   return (
     <div className="w-full h-screen flex flex-col">
-      <div>menu bar</div>
+      <Menubar>
+        <MenubarMenu>
+          <MenubarTrigger>File</MenubarTrigger>
+          <MenubarContent>
+            <MenubarItem>
+              New Tab <MenubarShortcut>⌘T</MenubarShortcut>
+            </MenubarItem>
+            <MenubarItem>New Window</MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem>Share</MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem>Print</MenubarItem>
+          </MenubarContent>
+        </MenubarMenu>
+      </Menubar>
       <div className="flex-1">
         <QuadDock
           top={<div>top</div>}

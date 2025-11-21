@@ -136,21 +136,26 @@ Additionally, contributed to key infrastructure initiatives, including implement
 
 <style>
   :root{
-		--accent: 136, 58, 234;
-		--accent-light: 224, 204, 250;
-		--accent-dark: 49, 10, 101;
-		--border-color: #464352;
-		--p-text-color: #e5e5e5;
-		--accent-gradient: linear-gradient(
+    --home-background: #13151a;
+		--home-accent: 136, 58, 234;
+		--home-accent-light: 224, 204, 250;
+		--home-accent-dark: 49, 10, 101;
+		--home-border-color: #464352;
+		--home-p-text-color: #e5e5e5;
+		--home-accent-gradient: linear-gradient(
 			45deg,
-			rgb(var(--accent)),
-			rgb(var(--accent-light)) 30%,
+			rgb(var(--home-accent)),
+			rgb(var(--home-accent-light)) 30%,
 			white 60%
 		);
   }
+
+  body {
+    background: var(--home-background);
+  }
   p {
     font-weight: 200;
-    color: var(--p-text-color);
+    color: var(--home-p-text-color);
   }
 
   .hero-section {
@@ -163,7 +168,7 @@ Additionally, contributed to key infrastructure initiatives, including implement
     justify-content: center;
     overflow: hidden;
     color: white;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--home-border-color);
   }
 
   #gameContainer {
@@ -286,26 +291,26 @@ Additionally, contributed to key infrastructure initiatives, including implement
     font-weight: 300;
     margin-bottom: 1rem;
     text-shadow: black 5px 5px 4px;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--home-border-color);
   }
 
   footer {
     min-height: 3rem;
-    background: rgba(var(--accent-light), 0.1);
-    border-top: 1px solid var(--border-color);
+    background: rgba(var(--home-accent-light), 0.1);
+    border-top: 1px solid var(--home-border-color);
     padding: 1rem;
     color: #b5b5b5;
     margin-top: 2rem;
   }
 
   .time-period {
-    border-left: 1px solid var(--border-color);
+    border-left: 1px solid var(--home-border-color);
     padding-left: 1.25rem;
   }
 
   .intro-card {
-    background: rgba(var(--accent-light), 0.1);
-    border: 1px solid var(--border-color);
+    background: rgba(var(--home-accent-light), 0.1);
+    border: 1px solid var(--home-border-color);
     border-radius: 8px;
     margin-bottom: 2rem;
     overflow: hidden;
@@ -323,7 +328,7 @@ Additionally, contributed to key infrastructure initiatives, including implement
     padding: 1rem 0;
     margin-top: 1.5rem;
     background: rgb(0 0 0 / 23%);
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--home-border-color);
   }
 
   .social-links li {

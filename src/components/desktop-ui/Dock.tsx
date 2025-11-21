@@ -280,25 +280,25 @@ export function QuadDock({
         onDoubleClick={() => toggleCollapse(side)}
         className={`
           ${horizontal ? `h-[${SPLITTER_SIZE}px]` : `w-[${SPLITTER_SIZE}px]`}
-          bg-dock-splitter backdrop-blur flex items-center justify-center
+          bg-border backdrop-blur flex items-center justify-center
           transition-all duration-200 ease-out
-          hover:bg-dock-splitter-hover hover:brightness-110
+          hover:bg-border/70 hover:brightness-110
         `}
         style={{ cursor }}
       >
         <div
           className={`flex ${horizontal ? "flex-row" : "flex-col"} gap-[2px] transition-opacity duration-200`}
         >
-          <div className="w-1.5 h-1.5 bg-dock-splitter-dot rounded-full" />
-          <div className="w-1.5 h-1.5 bg-dock-splitter-dot rounded-full" />
-          <div className="w-1.5 h-1.5 bg-dock-splitter-dot rounded-full" />
+          <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full" />
+          <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full" />
+          <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full" />
         </div>
       </div>
     );
   };
 
   const panelClass =
-    "h-full bg-background text-foreground backdrop-blur shadow-inner";
+    "h-full bg-card text-card-foreground backdrop-blur shadow-inner";
 
   const showLeft = !collapsed.left;
   const showRight = !collapsed.right;
