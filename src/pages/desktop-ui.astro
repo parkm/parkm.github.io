@@ -8,9 +8,7 @@ import { DesktopUiDemo } from "../components/ui/DesktopUiDemo";
 ---
 
 <Layout title={title} description={description}>
-    <div>
-        <DesktopUiDemo client:only="react" />
-    </div>
+    <DesktopUiDemo client:only="react" />
     <div class="fixed bottom-5 right-5">
         <DarkModeToggle id="dark-mode-toggle" />
     </div>

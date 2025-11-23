@@ -70,13 +70,6 @@ export function QuadDock({
 }: QuadDockProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const [sizes, setSizes] = useState({
-    left: leftInitialSize,
-    right: rightInitialSize,
-    top: topInitialSize,
-    bottom: bottomInitialSize,
-  });
-
   const [collapsed, setCollapsed] = useState<Record<DockSide, boolean>>({
     left: false,
     right: false,
@@ -171,6 +164,94 @@ export function QuadDock({
     },
     [centerMinHeight, topMinSize, bottomMinSize],
   );
+
+  const [sizes, setSizes] = useState(() => {
+    const solveHoriz = (l: number, r: number) => {
+      const minC = centerMinWidth;
+      const total = l + r;
+      const available = 100 - minC;
+
+      if (total <= available) {
+        return {
+          left: Math.max(l, leftMinSize),
+          right: Math.max(r, rightMinSize),
+        };
+      }
+
+      let overflow = total - available;
+      let nl = l;
+      let nr = r;
+
+      while (overflow > 0.1) {
+        const rl = nl - leftMinSize;
+        const rr = nr - rightMinSize;
+        if (rl <= 0 && rr <= 0) break;
+
+        const totalRoom = rl + rr;
+        if (totalRoom <= 0) break;
+
+        const redL = Math.min((rl / totalRoom) * overflow, rl);
+        const redR = Math.min((rr / totalRoom) * overflow, rr);
+
+        nl -= redL;
+        nr -= redR;
+        overflow -= redL + redR;
+      }
+
+      return {
+        left: Math.max(nl, leftMinSize),
+        right: Math.max(nr, rightMinSize),
+      };
+    };
+
+    const solveVert = (t: number, b: number) => {
+      const minC = centerMinHeight;
+      const total = t + b;
+      const available = 100 - minC;
+
+      if (total <= available) {
+        return {
+          top: Math.max(t, topMinSize),
+          bottom: Math.max(b, bottomMinSize),
+        };
+      }
+
+      let overflow = total - available;
+      let nt = t;
+      let nb = b;
+
+      while (overflow > 0.1) {
+        const rt = nt - topMinSize;
+        const rb = nb - bottomMinSize;
+        if (rt <= 0 && rb <= 0) break;
+
+        const totalRoom = rt + rb;
+        if (totalRoom <= 0) break;
+
+        const redT = Math.min((rt / totalRoom) * overflow, rt);
+        const redB = Math.min((rb / totalRoom) * overflow, rb);
+
+        nt -= redT;
+        nb -= redB;
+        overflow -= redT + redB;
+      }
+
+      return {
+        top: Math.max(nt, topMinSize),
+        bottom: Math.max(nb, bottomMinSize),
+      };
+    };
+
+    const horiz = solveHoriz(leftInitialSize, rightInitialSize);
+    const vert = solveVert(topInitialSize, bottomInitialSize);
+
+    return {
+      left: horiz.left,
+      right: horiz.right,
+      top: vert.top,
+      bottom: vert.bottom,
+    };
+  });
 
   const toggleCollapse = (side: DockSide) => {
     setCollapsed((c) => ({ ...c, [side]: !c[side] }));
@@ -331,7 +412,7 @@ export function QuadDock({
     );
   };
 
-  const panelClass = "h-full bg-card text-card-foreground";
+  const panelClass = "h-full bg-background text-card-foreground overflow-auto";
 
   const showLeft = !collapsed.left;
   const showRight = !collapsed.right;
@@ -341,46 +422,46 @@ export function QuadDock({
   return (
     <div
       ref={containerRef}
-      className={`h-full w-full overflow-hidden bg-background backdrop-blur ${className}`}
+      className={`h-full w-full min-h-0 overflow-hidden bg-background backdrop-blur ${className}`}
     >
       <div
-        className="grid h-full w-full"
+        className="grid h-full min-h-0 w-full"
         style={{
           gridTemplateColumns: `
-            ${showLeft ? sizes.left + "%" : "0px"}
+            ${showLeft ? `${sizes.left}fr` : "0px"}
             ${SPLITTER_SIZE}px
-            1fr
+            ${100 - (showLeft ? sizes.left : 0) - (showRight ? sizes.right : 0)}fr
             ${SPLITTER_SIZE}px
-            ${showRight ? sizes.right + "%" : "0px"}
+            ${showRight ? `${sizes.right}fr` : "0px"}
           `,
         }}
       >
-        <div className="h-full">
+        <div className="h-full min-h-0 w-full overflow-hidden">
           {showLeft && left && <div className={panelClass}>{left}</div>}
         </div>
 
         <Splitter side="left" horizontal={false} />
 
-        <div className="h-full">
+        <div className="h-full min-h-0 w-full overflow-hidden">
           <div
-            className="grid h-full"
+            className="grid h-full min-h-0 w-full"
             style={{
               gridTemplateRows: `
-                ${showTop ? sizes.top + "%" : "0px"}
+                ${showTop ? `${sizes.top}fr` : "0px"}
                 ${SPLITTER_SIZE}px
-                1fr
+                ${100 - (showTop ? sizes.top : 0) - (showBottom ? sizes.bottom : 0)}fr
                 ${SPLITTER_SIZE}px
-                ${showBottom ? sizes.bottom + "%" : "0px"}
+                ${showBottom ? `${sizes.bottom}fr` : "0px"}
               `,
             }}
           >
-            <div className="h-full">
+            <div className="h-full min-h-0 w-full overflow-hidden">
               {showTop && top && <div className={panelClass}>{top}</div>}
             </div>
 
             <Splitter side="top" horizontal />
 
-            <div className="h-full overflow-hidden">
+            <div className="h-full min-h-0 w-full overflow-hidden">
               <div className={`${panelClass} h-full overflow-auto`}>
                 {center}
               </div>
@@ -388,7 +469,7 @@ export function QuadDock({
 
             <Splitter side="bottom" horizontal />
 
-            <div className="h-full">
+            <div className="h-full min-h-0 w-full overflow-hidden">
               {showBottom && bottom && (
                 <div className={panelClass}>{bottom}</div>
               )}
@@ -398,7 +479,7 @@ export function QuadDock({
 
         <Splitter side="right" horizontal={false} />
 
-        <div className="h-full">
+        <div className="h-full min-h-0 w-full overflow-hidden">
           {showRight && right && <div className={panelClass}>{right}</div>}
         </div>
       </div>
