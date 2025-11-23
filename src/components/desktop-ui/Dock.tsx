@@ -8,7 +8,8 @@ import {
   type TouchEvent as ReactTouchEvent,
 } from "react";
 
-const SPLITTER_SIZE = 4;
+const SPLITTER_SIZE = 1;
+const SPLITTER_HIT_AREA = 8;
 
 type DockSide = "left" | "right" | "top" | "bottom";
 
@@ -37,22 +38,34 @@ type QuadDockProps = {
   className?: string;
 };
 
+/**
+ * A quad dock component that allows you to split the screen into four panels.
+ * @param left - The left panel content
+ * @param right - The right panel content
+ * @param top - The top panel content
+ * @param bottom - The bottom panel content
+ * @param center - The center panel content
+ * @param leftInitialSize - The initial size of the left panel (in percentage)
+ * @param rightInitialSize - The initial size of the right panel (in percentage)
+ * @param topInitialSize - The initial size of the top panel (in percentage)
+ * @param bottomInitialSize - The initial size of the bottom panel (in percentage)
+ */
 export function QuadDock({
   left,
   right,
   top,
   bottom,
   center,
-  leftInitialSize = 260,
-  rightInitialSize = 260,
-  topInitialSize = 180,
-  bottomInitialSize = 180,
-  leftMinSize = 140,
-  rightMinSize = 140,
-  topMinSize = 120,
-  bottomMinSize = 120,
-  centerMinWidth = 360,
-  centerMinHeight = 260,
+  leftInitialSize = 20,
+  rightInitialSize = 20,
+  topInitialSize = 25,
+  bottomInitialSize = 25,
+  leftMinSize = 10,
+  rightMinSize = 10,
+  topMinSize = 15,
+  bottomMinSize = 15,
+  centerMinWidth = 30,
+  centerMinHeight = 30,
   className = "",
 }: QuadDockProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -78,31 +91,32 @@ export function QuadDock({
   });
 
   const solveHorizontal = useCallback(
-    (l: number, r: number, width: number) => {
-      const minC = centerMinWidth + SPLITTER_SIZE * 2;
-      const required = l + r + minC;
+    (l: number, r: number) => {
+      const minC = centerMinWidth;
+      const total = l + r;
+      const available = 100 - minC;
 
-      if (required <= width) {
+      if (total <= available) {
         return {
           left: Math.max(l, leftMinSize),
           right: Math.max(r, rightMinSize),
         };
       }
 
-      let overflow = required - width;
+      let overflow = total - available;
       let nl = l;
       let nr = r;
 
-      while (overflow > 0) {
+      while (overflow > 0.1) {
         const rl = nl - leftMinSize;
         const rr = nr - rightMinSize;
         if (rl <= 0 && rr <= 0) break;
 
-        const total = rl + rr;
-        if (total <= 0) break;
+        const totalRoom = rl + rr;
+        if (totalRoom <= 0) break;
 
-        const redL = Math.min((rl / total) * overflow, rl);
-        const redR = Math.min((rr / total) * overflow, rr);
+        const redL = Math.min((rl / totalRoom) * overflow, rl);
+        const redR = Math.min((rr / totalRoom) * overflow, rr);
 
         nl -= redL;
         nr -= redR;
@@ -118,31 +132,32 @@ export function QuadDock({
   );
 
   const solveVertical = useCallback(
-    (t: number, b: number, height: number) => {
-      const minC = centerMinHeight + SPLITTER_SIZE * 2;
-      const required = t + b + minC;
+    (t: number, b: number) => {
+      const minC = centerMinHeight;
+      const total = t + b;
+      const available = 100 - minC;
 
-      if (required <= height) {
+      if (total <= available) {
         return {
           top: Math.max(t, topMinSize),
           bottom: Math.max(b, bottomMinSize),
         };
       }
 
-      let overflow = required - height;
+      let overflow = total - available;
       let nt = t;
       let nb = b;
 
-      while (overflow > 0) {
+      while (overflow > 0.1) {
         const rt = nt - topMinSize;
         const rb = nb - bottomMinSize;
         if (rt <= 0 && rb <= 0) break;
 
-        const total = rt + rb;
-        if (total <= 0) break;
+        const totalRoom = rt + rb;
+        if (totalRoom <= 0) break;
 
-        const redT = Math.min((rt / total) * overflow, rt);
-        const redB = Math.min((rb / total) * overflow, rb);
+        const redT = Math.min((rt / totalRoom) * overflow, rt);
+        const redB = Math.min((rb / totalRoom) * overflow, rb);
 
         nt -= redT;
         nb -= redB;
@@ -169,18 +184,26 @@ export function QuadDock({
         collapsedDrag: collapsed[side],
       };
       e.preventDefault();
+      e.stopPropagation();
     };
 
   useEffect(() => {
     const moveListener = (e: MouseEvent | TouchEvent) => {
       if (!dragRef.current.active || !dragRef.current.dock) return;
 
+      e.preventDefault();
+
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
       const pt = "touches" in e ? e.touches[0] : e;
+      if (!pt) return;
+
       const x = pt.clientX - rect.left;
       const y = pt.clientY - rect.top;
+
+      const xPercent = (x / rect.width) * 100;
+      const yPercent = (y / rect.height) * 100;
 
       let { left, right, top, bottom } = sizes;
       const side = dragRef.current.dock;
@@ -200,34 +223,34 @@ export function QuadDock({
       };
 
       if (side === "left") {
-        collapseIfSmall(x, leftMinSize, "left");
-        expandIfLarge(x, leftMinSize, "left");
-        if (!dragRef.current.collapsedDrag) left = x;
+        collapseIfSmall(xPercent, leftMinSize, "left");
+        expandIfLarge(xPercent, leftMinSize, "left");
+        if (!dragRef.current.collapsedDrag) left = xPercent;
       }
 
       if (side === "right") {
-        const d = rect.width - x;
+        const d = 100 - xPercent;
         collapseIfSmall(d, rightMinSize, "right");
         expandIfLarge(d, rightMinSize, "right");
         if (!dragRef.current.collapsedDrag) right = d;
       }
 
       if (side === "top") {
-        collapseIfSmall(y, topMinSize, "top");
-        expandIfLarge(y, topMinSize, "top");
-        if (!dragRef.current.collapsedDrag) top = y;
+        collapseIfSmall(yPercent, topMinSize, "top");
+        expandIfLarge(yPercent, topMinSize, "top");
+        if (!dragRef.current.collapsedDrag) top = yPercent;
       }
 
       if (side === "bottom") {
-        const d = rect.height - y;
+        const d = 100 - yPercent;
         collapseIfSmall(d, bottomMinSize, "bottom");
         expandIfLarge(d, bottomMinSize, "bottom");
         if (!dragRef.current.collapsedDrag) bottom = d;
       }
 
       if (!dragRef.current.collapsedDrag) {
-        const horiz = solveHorizontal(left, right, rect.width);
-        const vert = solveVertical(top, bottom, rect.height);
+        const horiz = solveHorizontal(left, right);
+        const vert = solveVertical(top, bottom);
 
         setSizes({
           left: horiz.left,
@@ -247,12 +270,14 @@ export function QuadDock({
     window.addEventListener("mouseup", endListener);
     window.addEventListener("touchmove", moveListener, { passive: false });
     window.addEventListener("touchend", endListener);
+    window.addEventListener("touchcancel", endListener);
 
     return () => {
       window.removeEventListener("mousemove", moveListener);
       window.removeEventListener("mouseup", endListener);
       window.removeEventListener("touchmove", moveListener);
       window.removeEventListener("touchend", endListener);
+      window.removeEventListener("touchcancel", endListener);
     };
   }, [
     sizes,
@@ -278,27 +303,35 @@ export function QuadDock({
         onMouseDown={startDrag(side)}
         onTouchStart={startDrag(side)}
         onDoubleClick={() => toggleCollapse(side)}
-        className={`
-          ${horizontal ? `h-[${SPLITTER_SIZE}px]` : `w-[${SPLITTER_SIZE}px]`}
-          bg-border backdrop-blur flex items-center justify-center
-          transition-all duration-200 ease-out
-          hover:bg-border/70 hover:brightness-110
-        `}
-        style={{ cursor }}
+        className="relative flex items-center justify-center touch-none select-none"
+        style={{
+          width: horizontal ? "100%" : `${SPLITTER_SIZE}px`,
+          height: horizontal ? `${SPLITTER_SIZE}px` : "100%",
+          cursor,
+          touchAction: "none",
+        }}
       >
         <div
-          className={`flex ${horizontal ? "flex-row" : "flex-col"} gap-[2px] transition-opacity duration-200`}
-        >
-          <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full" />
-          <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full" />
-          <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full" />
-        </div>
+          className="absolute inset-0 bg-border transition-colors duration-150"
+          style={{
+            width: horizontal ? "100%" : `${SPLITTER_SIZE}px`,
+            height: horizontal ? `${SPLITTER_SIZE}px` : "100%",
+          }}
+        />
+        <div
+          className="absolute hover:bg-border active:bg-border transition-colors duration-150"
+          style={{
+            width: horizontal ? "100%" : `${SPLITTER_HIT_AREA}px`,
+            height: horizontal ? `${SPLITTER_HIT_AREA}px` : "100%",
+            cursor,
+            touchAction: "none",
+          }}
+        />
       </div>
     );
   };
 
-  const panelClass =
-    "h-full bg-card text-card-foreground backdrop-blur shadow-inner";
+  const panelClass = "h-full bg-card text-card-foreground";
 
   const showLeft = !collapsed.left;
   const showRight = !collapsed.right;
@@ -314,11 +347,11 @@ export function QuadDock({
         className="grid h-full w-full"
         style={{
           gridTemplateColumns: `
-            ${showLeft ? sizes.left + "px" : "0px"}
+            ${showLeft ? sizes.left + "%" : "0px"}
             ${SPLITTER_SIZE}px
             1fr
             ${SPLITTER_SIZE}px
-            ${showRight ? sizes.right + "px" : "0px"}
+            ${showRight ? sizes.right + "%" : "0px"}
           `,
         }}
       >
@@ -333,11 +366,11 @@ export function QuadDock({
             className="grid h-full"
             style={{
               gridTemplateRows: `
-                ${showTop ? sizes.top + "px" : "0px"}
+                ${showTop ? sizes.top + "%" : "0px"}
                 ${SPLITTER_SIZE}px
                 1fr
                 ${SPLITTER_SIZE}px
-                ${showBottom ? sizes.bottom + "px" : "0px"}
+                ${showBottom ? sizes.bottom + "%" : "0px"}
               `,
             }}
           >
