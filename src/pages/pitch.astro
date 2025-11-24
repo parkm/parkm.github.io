@@ -9,10 +9,10 @@ import Layout from "../layouts/Layout.astro";
 <Layout title={title} description={description}>
   <div class="p-5">
     <!-- Frequency Display -->
-    <div
-      class="text-center mb-6 p-6 text-white"
-    >
-      <div id="frequencyValue" class="text-4xl font-bold mb-1 drop-shadow-lg">440.0 Hz</div>
+    <div class="text-center mb-6 p-6 text-white">
+      <div id="frequencyValue" class="text-4xl font-bold mb-1 drop-shadow-lg">
+        440.0 Hz
+      </div>
       <div id="noteName" class="text-xl opacity-90">A4</div>
       <div id="centsOffset" class="text-base opacity-80 mt-1">±0 cents</div>
     </div>
@@ -20,9 +20,18 @@ import Layout from "../layouts/Layout.astro";
     <!-- Spectrum Canvas -->
     <div
       id="canvasContainer"
-      class="relative w-full h-[300px] mb-6 rounded-xl overflow-hidden shadow-lg border border-blue-500/20 select-none touch-none"
+      class="relative w-full h-[300px] mb-2 rounded-xl overflow-hidden shadow-lg border border-blue-500/20 select-none"
     >
       <canvas id="spectrumCanvas" class="block w-full h-full bg-slate-950"
+      ></canvas>
+    </div>
+
+    <!-- Piano Visualization -->
+    <div
+      id="pianoContainer"
+      class="relative w-full h-[100px] mb-6 rounded-xl overflow-hidden shadow-lg border border-blue-500/20 select-none"
+    >
+      <canvas id="pianoCanvas" class="block w-full h-full bg-slate-900"
       ></canvas>
     </div>
 
@@ -104,6 +113,19 @@ import Layout from "../layouts/Layout.astro";
     const canvasContainer = document.getElementById(
       "canvasContainer"
     ) as HTMLDivElement;
+
+    const pianoCanvas = document.getElementById(
+      "pianoCanvas"
+    ) as HTMLCanvasElement;
+    const pianoCtx: CanvasRenderingContext2D = (() => {
+      const c = pianoCanvas.getContext("2d");
+      if (!c) throw new Error("2D context not available");
+      return c;
+    })();
+    const pianoContainer = document.getElementById(
+      "pianoContainer"
+    ) as HTMLDivElement;
+
     const frequencyValue = document.getElementById(
       "frequencyValue"
     ) as HTMLDivElement;
@@ -130,6 +152,10 @@ import Layout from "../layouts/Layout.astro";
     let releaseTimeout: number | null = null;
     let equalTemperamentClamp: boolean = false;
 
+    let touchStartX: number = 0;
+    let touchStartY: number = 0;
+    let hasMovedHorizontally: boolean = false;
+
     const MIN_FREQ = 55;
     const MAX_FREQ = 1760;
     const noteNames: string[] = [
@@ -154,7 +180,15 @@ import Layout from "../layouts/Layout.astro";
       canvas.height = rect.height * dpr;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
+
+      const pianoRect = pianoContainer.getBoundingClientRect();
+      pianoCanvas.width = pianoRect.width * dpr;
+      pianoCanvas.height = pianoRect.height * dpr;
+      pianoCtx.setTransform(1, 0, 0, 1, 0, 0);
+      pianoCtx.scale(dpr, dpr);
+
       drawSpectrum();
+      drawPiano();
     }
 
     function frequencyToNote(freq: number): {
@@ -205,9 +239,7 @@ import Layout from "../layouts/Layout.astro";
       ctx.strokeStyle = "rgba(186,230,253,0.45)";
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 4]);
-      const perfectFifths = [
-        82.5, 165, 330, 660, 1320
-      ];
+      const perfectFifths = [82.5, 165, 330, 660, 1320];
       perfectFifths.forEach((freq) => {
         if (freq >= MIN_FREQ && freq <= MAX_FREQ) {
           const x = freqToX(freq, width);
@@ -225,9 +257,7 @@ import Layout from "../layouts/Layout.astro";
       ctx.strokeStyle = "rgba(165,243,252,0.4)";
       ctx.lineWidth = 1;
       ctx.setLineDash([2, 2]);
-      const perfectFourths = [
-        73.33, 146.67, 293.33, 586.67, 1173.33
-      ];
+      const perfectFourths = [73.33, 146.67, 293.33, 586.67, 1173.33];
       perfectFourths.forEach((freq) => {
         if (freq >= MIN_FREQ && freq <= MAX_FREQ) {
           const x = freqToX(freq, width);
@@ -245,9 +275,7 @@ import Layout from "../layouts/Layout.astro";
       ctx.strokeStyle = "rgba(224,242,254,0.3)";
       ctx.lineWidth = 1;
       ctx.setLineDash([1, 3]);
-      const majorThirds = [
-        68.75, 137.5, 275, 550, 1100
-      ];
+      const majorThirds = [68.75, 137.5, 275, 550, 1100];
       majorThirds.forEach((freq) => {
         if (freq >= MIN_FREQ && freq <= MAX_FREQ) {
           const x = freqToX(freq, width);
@@ -293,6 +321,143 @@ import Layout from "../layouts/Layout.astro";
         ctx.strokeStyle = "#38bdf8";
         ctx.lineWidth = 3;
         ctx.stroke();
+      }
+    }
+
+    function drawPiano(): void {
+      const width = pianoContainer.offsetWidth;
+      const height = pianoContainer.offsetHeight;
+      pianoCtx.clearRect(0, 0, width, height);
+
+      // Calculate which MIDI notes are visible in our frequency range
+      const minNoteNum = Math.floor(12 * Math.log2(MIN_FREQ / 440) + 69);
+      const maxNoteNum = Math.ceil(12 * Math.log2(MAX_FREQ / 440) + 69);
+
+      // Count total white keys to calculate equal width
+      const whiteKeyIndices = [0, 2, 4, 5, 7, 9, 11]; // C, D, E, F, G, A, B
+      let whiteKeyCount = 0;
+      for (let noteNum = minNoteNum; noteNum <= maxNoteNum; noteNum++) {
+        const noteIndex = noteNum % 12;
+        if (whiteKeyIndices.includes(noteIndex)) {
+          whiteKeyCount++;
+        }
+      }
+
+      const equalWhiteKeyWidth = width / whiteKeyCount;
+      const whiteKeys: Array<{ noteNum: number; x: number; width: number }> =
+        [];
+
+      // Draw white keys with equal width
+      let whiteKeyPosition = 0;
+      for (let noteNum = minNoteNum; noteNum <= maxNoteNum; noteNum++) {
+        const noteIndex = noteNum % 12;
+        if (whiteKeyIndices.includes(noteIndex)) {
+          const x = whiteKeyPosition * equalWhiteKeyWidth;
+
+          whiteKeys.push({ noteNum, x, width: equalWhiteKeyWidth });
+
+          // Draw white key
+          pianoCtx.fillStyle = "#f8fafc";
+          pianoCtx.fillRect(x, 0, equalWhiteKeyWidth, height);
+          pianoCtx.strokeStyle = "#334155";
+          pianoCtx.lineWidth = 1;
+          pianoCtx.strokeRect(x, 0, equalWhiteKeyWidth, height);
+
+          whiteKeyPosition++;
+        }
+      }
+
+      // Draw black keys on top
+      const blackKeyIndices = [1, 3, 6, 8, 10]; // C#, D#, F#, G#, A#
+      for (let noteNum = minNoteNum; noteNum <= maxNoteNum; noteNum++) {
+        const noteIndex = noteNum % 12;
+        if (blackKeyIndices.includes(noteIndex)) {
+          // Find the white keys on either side
+          const prevWhiteKey = whiteKeys.find((k) => k.noteNum === noteNum - 1);
+          const nextWhiteKey = whiteKeys.find((k) => k.noteNum === noteNum + 1);
+
+          if (prevWhiteKey && nextWhiteKey) {
+            const blackKeyWidth = equalWhiteKeyWidth * 0.6;
+            const blackKeyX =
+              prevWhiteKey.x + prevWhiteKey.width - blackKeyWidth / 2;
+            const blackKeyHeight = height * 0.6;
+
+            pianoCtx.fillStyle = "#1e293b";
+            pianoCtx.fillRect(blackKeyX, 0, blackKeyWidth, blackKeyHeight);
+            pianoCtx.strokeStyle = "#0f172a";
+            pianoCtx.lineWidth = 1;
+            pianoCtx.strokeRect(blackKeyX, 0, blackKeyWidth, blackKeyHeight);
+          }
+        }
+      }
+
+      // Draw indicator for current frequency
+      if (isDragging) {
+        const info = frequencyToNote(currentFreq);
+        const noteIndex = info.noteNum % 12;
+        const isBlackKey = blackKeyIndices.includes(noteIndex);
+
+        // Find the key boundaries
+        let keyX: number, keyWidth: number, keyHeight: number;
+
+        if (isBlackKey) {
+          const prevWhiteKey = whiteKeys.find(
+            (k) => k.noteNum === info.noteNum - 1
+          );
+          if (prevWhiteKey) {
+            const blackKeyWidth = equalWhiteKeyWidth * 0.6;
+            keyX = prevWhiteKey.x + prevWhiteKey.width - blackKeyWidth / 2;
+            keyWidth = blackKeyWidth;
+            keyHeight = height * 0.6;
+          } else {
+            return;
+          }
+        } else {
+          const whiteKey = whiteKeys.find((k) => k.noteNum === info.noteNum);
+          if (whiteKey) {
+            keyX = whiteKey.x;
+            keyWidth = whiteKey.width;
+            keyHeight = height;
+          } else {
+            return;
+          }
+        }
+
+        // Calculate indicator position based on cents offset
+        // cents range is -50 to +50 for the key
+        const centsRatio = info.cents / 50;
+        const indicatorX = keyX + keyWidth / 2 + (centsRatio * keyWidth) / 2;
+
+        // Highlight the key
+        pianoCtx.fillStyle = isBlackKey
+          ? "rgba(59, 130, 246, 0.4)"
+          : "rgba(96, 165, 250, 0.3)";
+        pianoCtx.fillRect(keyX, 0, keyWidth, keyHeight);
+
+        // Draw indicator line
+        pianoCtx.strokeStyle = "#ef4444";
+        pianoCtx.lineWidth = 3;
+        pianoCtx.beginPath();
+        pianoCtx.moveTo(indicatorX, keyHeight * 0.2);
+        pianoCtx.lineTo(indicatorX, keyHeight);
+        pianoCtx.stroke();
+
+        // Draw indicator circle at bottom
+        pianoCtx.fillStyle = "#ef4444";
+        pianoCtx.beginPath();
+        pianoCtx.arc(indicatorX, keyHeight - 10, 6, 0, Math.PI * 2);
+        pianoCtx.fill();
+
+        // Draw center reference line (perfect pitch)
+        const centerX = keyX + keyWidth / 2;
+        pianoCtx.strokeStyle = "rgba(34, 197, 94, 0.5)";
+        pianoCtx.lineWidth = 2;
+        pianoCtx.setLineDash([4, 4]);
+        pianoCtx.beginPath();
+        pianoCtx.moveTo(centerX, keyHeight * 0.2);
+        pianoCtx.lineTo(centerX, keyHeight);
+        pianoCtx.stroke();
+        pianoCtx.setLineDash([]);
       }
     }
 
@@ -352,7 +517,7 @@ import Layout from "../layouts/Layout.astro";
         dryGain.connect(audioContext.destination);
 
         isAudioReady = true;
-        status.textContent = "✓ Audio ready! Now touch the spectrum";
+        status.textContent = "✓ Audio ready! Now touch the spectrum or piano";
         startBtn.textContent = "AUDIO READY";
         startBtn.classList.add("ready");
       } catch (e) {
@@ -406,6 +571,7 @@ import Layout from "../layouts/Layout.astro";
       if (!oscillator) {
         isDragging = false;
         drawSpectrum();
+        drawPiano();
         return;
       }
       if (soundMode === "nice" && currentEnvelope && audioContext) {
@@ -432,6 +598,7 @@ import Layout from "../layouts/Layout.astro";
       isPlaying = false;
       isDragging = false;
       drawSpectrum();
+      drawPiano();
     }
 
     function updateFrequency(x: number): void {
@@ -461,6 +628,7 @@ import Layout from "../layouts/Layout.astro";
             ? `+${info.cents} cents (sharp)`
             : `${info.cents} cents (flat)`;
       drawSpectrum();
+      drawPiano();
     }
 
     function getEventX(e: MouseEvent | TouchEvent): number {
@@ -474,12 +642,161 @@ import Layout from "../layouts/Layout.astro";
       return 0;
     }
 
+    function getPianoEventX(e: MouseEvent | TouchEvent): number {
+      const rect = pianoCanvas.getBoundingClientRect();
+      if (e instanceof TouchEvent && e.touches.length > 0) {
+        return e.touches[0].clientX - rect.left;
+      }
+      if (e instanceof MouseEvent) {
+        return e.clientX - rect.left;
+      }
+      return 0;
+    }
+
+    function getPianoEventY(e: MouseEvent | TouchEvent): number {
+      const rect = pianoCanvas.getBoundingClientRect();
+      if (e instanceof TouchEvent && e.touches.length > 0) {
+        return e.touches[0].clientY - rect.top;
+      }
+      if (e instanceof MouseEvent) {
+        return e.clientY - rect.top;
+      }
+      return 0;
+    }
+
+    function updateFrequencyFromPiano(x: number, y: number): void {
+      const width = pianoContainer.offsetWidth;
+      const height = pianoContainer.offsetHeight;
+
+      const minNoteNum = Math.floor(12 * Math.log2(MIN_FREQ / 440) + 69);
+      const maxNoteNum = Math.ceil(12 * Math.log2(MAX_FREQ / 440) + 69);
+
+      const whiteKeyIndices = [0, 2, 4, 5, 7, 9, 11];
+      const blackKeyIndices = [1, 3, 6, 8, 10];
+
+      let whiteKeyCount = 0;
+      for (let noteNum = minNoteNum; noteNum <= maxNoteNum; noteNum++) {
+        const noteIndex = noteNum % 12;
+        if (whiteKeyIndices.includes(noteIndex)) {
+          whiteKeyCount++;
+        }
+      }
+
+      const equalWhiteKeyWidth = width / whiteKeyCount;
+      const blackKeyHeight = height * 0.6;
+
+      // Build a map of white keys
+      const whiteKeys: Array<{ noteNum: number; x: number; width: number }> =
+        [];
+      let whiteKeyPosition = 0;
+      for (let noteNum = minNoteNum; noteNum <= maxNoteNum; noteNum++) {
+        const noteIndex = noteNum % 12;
+        if (whiteKeyIndices.includes(noteIndex)) {
+          const keyX = whiteKeyPosition * equalWhiteKeyWidth;
+          whiteKeys.push({ noteNum, x: keyX, width: equalWhiteKeyWidth });
+          whiteKeyPosition++;
+        }
+      }
+
+      // Check if clicking on a black key first (if Y is in black key range)
+      if (y <= blackKeyHeight) {
+        for (let noteNum = minNoteNum; noteNum <= maxNoteNum; noteNum++) {
+          const noteIndex = noteNum % 12;
+          if (blackKeyIndices.includes(noteIndex)) {
+            const prevWhiteKey = whiteKeys.find(
+              (k) => k.noteNum === noteNum - 1
+            );
+            if (prevWhiteKey) {
+              const blackKeyWidth = equalWhiteKeyWidth * 0.6;
+              const blackKeyX =
+                prevWhiteKey.x + prevWhiteKey.width - blackKeyWidth / 2;
+
+              if (x >= blackKeyX && x <= blackKeyX + blackKeyWidth) {
+                const freq = noteToFrequency(noteNum);
+
+                if (!equalTemperamentClamp) {
+                  const relativeX = (x - blackKeyX) / blackKeyWidth;
+                  const centOffset = (relativeX - 0.5) * 100;
+                  currentFreq = freq * Math.pow(2, centOffset / 1200);
+                } else {
+                  currentFreq = freq;
+                }
+
+                if (oscillator && isPlaying && audioContext) {
+                  oscillator.frequency.setValueAtTime(
+                    currentFreq,
+                    audioContext.currentTime
+                  );
+                }
+
+                const info = frequencyToNote(currentFreq);
+                frequencyValue.textContent = `${currentFreq.toFixed(1)} Hz`;
+                noteName.textContent = info.name;
+                centsOffset.textContent =
+                  info.cents === 0
+                    ? "Perfect pitch!"
+                    : info.cents > 0
+                      ? `+${info.cents} cents (sharp)`
+                      : `${info.cents} cents (flat)`;
+                drawSpectrum();
+                drawPiano();
+                return;
+              }
+            }
+          }
+        }
+      }
+
+      // Otherwise, find the white key
+      for (const whiteKey of whiteKeys) {
+        if (x >= whiteKey.x && x < whiteKey.x + whiteKey.width) {
+          const freq = noteToFrequency(whiteKey.noteNum);
+
+          if (!equalTemperamentClamp) {
+            const relativeX = (x - whiteKey.x) / whiteKey.width;
+            const centOffset = (relativeX - 0.5) * 100;
+            currentFreq = freq * Math.pow(2, centOffset / 1200);
+          } else {
+            currentFreq = freq;
+          }
+
+          if (oscillator && isPlaying && audioContext) {
+            oscillator.frequency.setValueAtTime(
+              currentFreq,
+              audioContext.currentTime
+            );
+          }
+
+          const info = frequencyToNote(currentFreq);
+          frequencyValue.textContent = `${currentFreq.toFixed(1)} Hz`;
+          noteName.textContent = info.name;
+          centsOffset.textContent =
+            info.cents === 0
+              ? "Perfect pitch!"
+              : info.cents > 0
+                ? `+${info.cents} cents (sharp)`
+                : `${info.cents} cents (flat)`;
+          drawSpectrum();
+          drawPiano();
+          return;
+        }
+      }
+    }
+
     function handleStart(e: MouseEvent | TouchEvent): void {
       if (!isAudioReady) {
         status.textContent = "⚠ Please tap START button first";
         return;
       }
-      e.preventDefault();
+
+      if (e instanceof TouchEvent) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        hasMovedHorizontally = false;
+      } else {
+        e.preventDefault();
+      }
+
       isDragging = true;
       updateFrequency(getEventX(e));
       startTone(currentFreq);
@@ -488,15 +805,94 @@ import Layout from "../layouts/Layout.astro";
 
     function handleMove(e: MouseEvent | TouchEvent): void {
       if (!isDragging || !isAudioReady) return;
-      e.preventDefault();
+
+      if (e instanceof TouchEvent) {
+        const deltaX = Math.abs(e.touches[0].clientX - touchStartX);
+        const deltaY = Math.abs(e.touches[0].clientY - touchStartY);
+
+        if (deltaX > deltaY && deltaX > 10) {
+          hasMovedHorizontally = true;
+        }
+
+        if (hasMovedHorizontally) {
+          e.preventDefault();
+        }
+      } else {
+        e.preventDefault();
+      }
+
       updateFrequency(getEventX(e));
     }
 
     function handleEnd(e: MouseEvent | TouchEvent): void {
       if (!isDragging) return;
-      e.preventDefault();
+
+      if (e instanceof MouseEvent) {
+        e.preventDefault();
+      }
+
       stopTone();
-      if (isAudioReady) status.textContent = "✓ Ready - Touch spectrum to play";
+      hasMovedHorizontally = false;
+      if (isAudioReady)
+        status.textContent = "✓ Ready - Touch spectrum or piano to play";
+    }
+
+    function handlePianoStart(e: MouseEvent | TouchEvent): void {
+      if (!isAudioReady) {
+        status.textContent = "⚠ Please tap START button first";
+        return;
+      }
+
+      if (e instanceof TouchEvent) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        hasMovedHorizontally = false;
+      } else {
+        e.preventDefault();
+      }
+
+      isDragging = true;
+      const x = getPianoEventX(e);
+      const y = getPianoEventY(e);
+      updateFrequencyFromPiano(x, y);
+      startTone(currentFreq);
+      status.textContent = "🎵 Playing...";
+    }
+
+    function handlePianoMove(e: MouseEvent | TouchEvent): void {
+      if (!isDragging || !isAudioReady) return;
+
+      if (e instanceof TouchEvent) {
+        const deltaX = Math.abs(e.touches[0].clientX - touchStartX);
+        const deltaY = Math.abs(e.touches[0].clientY - touchStartY);
+
+        if (deltaX > deltaY && deltaX > 10) {
+          hasMovedHorizontally = true;
+        }
+
+        if (hasMovedHorizontally) {
+          e.preventDefault();
+        }
+      } else {
+        e.preventDefault();
+      }
+
+      const x = getPianoEventX(e);
+      const y = getPianoEventY(e);
+      updateFrequencyFromPiano(x, y);
+    }
+
+    function handlePianoEnd(e: MouseEvent | TouchEvent): void {
+      if (!isDragging) return;
+
+      if (e instanceof MouseEvent) {
+        e.preventDefault();
+      }
+
+      stopTone();
+      hasMovedHorizontally = false;
+      if (isAudioReady)
+        status.textContent = "✓ Ready - Touch spectrum or piano to play";
     }
 
     startBtn.addEventListener("click", (e: MouseEvent) => {
@@ -532,6 +928,23 @@ import Layout from "../layouts/Layout.astro";
     canvas.addEventListener("mousemove", handleMove);
     canvas.addEventListener("mouseup", handleEnd);
     canvas.addEventListener("mouseleave", handleEnd);
+
+    pianoCanvas.addEventListener("touchstart", handlePianoStart, {
+      passive: false,
+    });
+    pianoCanvas.addEventListener("touchmove", handlePianoMove, {
+      passive: false,
+    });
+    pianoCanvas.addEventListener("touchend", handlePianoEnd, {
+      passive: false,
+    });
+    pianoCanvas.addEventListener("touchcancel", handlePianoEnd, {
+      passive: false,
+    });
+    pianoCanvas.addEventListener("mousedown", handlePianoStart);
+    pianoCanvas.addEventListener("mousemove", handlePianoMove);
+    pianoCanvas.addEventListener("mouseup", handlePianoEnd);
+    pianoCanvas.addEventListener("mouseleave", handlePianoEnd);
 
     window.addEventListener("resize", resizeCanvas);
     resizeCanvas();
