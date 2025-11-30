@@ -18,8 +18,8 @@ import Layout from "../layouts/Layout.astro";
       >
         <div
           id="tracer"
-          class="absolute w-4 h-4 bg-blue-300 rounded-full shadow-lg animate-pulse-glow"
-          style="top: -8px; left: -8px;"
+          class="absolute w-10 h-10 flex items-center justify-center text-2xl rounded-full shadow-lg animate-pulse-glow bg-blue-900/80 backdrop-blur-sm"
+          style="top: -20px; left: -20px;"
         >
         </div>
         <div
@@ -210,13 +210,14 @@ import Layout from "../layouts/Layout.astro";
 
       function updateTracer(progress) {
         const pt = rect.getPointAtLength(progress * totalLength);
-        const tracerR = 8;
+        const tracerR = 20;
         tracer.style.transform = `translate3d(${pt.x - tracerR}px, ${pt.y - tracerR}px,0)`;
       }
 
       function updateDisplay() {
         phaseDisplay.textContent = phases[phase];
         emojiDisplay.textContent = emojis[phase];
+        tracer.textContent = emojis[phase];
         countDisplay.textContent = Math.ceil(currentCount);
 
         const colors = [
@@ -270,6 +271,7 @@ import Layout from "../layouts/Layout.astro";
         startBtn.disabled = false;
         phaseDisplay.textContent = "Ready to Begin";
         emojiDisplay.textContent = "";
+        tracer.textContent = "";
         countDisplay.textContent = duration;
         sliderContainer.style.display = "block";
         updateTracer(0);
