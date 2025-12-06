@@ -2,9 +2,9 @@
 import IconButton from "./IconButton.astro";
 
 interface Props {
-  id: string;
+  id?: string;
 }
-const { id } = Astro.props;
+const { id = "dark-mode-toggle" } = Astro.props;
 ---
 
 <IconButton id={id}>

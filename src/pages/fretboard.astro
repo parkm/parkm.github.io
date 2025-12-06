@@ -1,0 +1,16 @@
+---
+export const title = "Fretboard";
+export const description = "A fretboard visualizer";
+export const icon = "🎸";
+
+import { FretboardApp } from "../components/Fretboard/FretboardApp.tsx";
+import DarkModeToggle from "../components/DarkModeToggle.astro";
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title={title} description={description} disableZoom={true}>
+  <FretboardApp client:only="react" />
+  <div class="fixed bottom-5 right-5">
+    <DarkModeToggle />
+  </div>
+</Layout>
