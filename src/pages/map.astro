@@ -11,12 +11,14 @@ type PageModule = {
   title?: string;
   description?: string;
   icon?: string;
-}
+};
 
-let links = [...Object.keys(modules)
+let links = [
+  ...Object.keys(modules)
     .filter(
       (filePath) =>
-        !/\/index\.astro$/.test(filePath) || filePath === "/src/pages/index.astro"
+        !/\/index\.astro$/.test(filePath) ||
+        filePath === "/src/pages/index.astro"
     )
     .map((filePath) => {
       const module = modules[filePath] as PageModule;
@@ -28,54 +30,102 @@ let links = [...Object.keys(modules)
           .replace(/\/$/, "") || "/";
       const isRoot = filePath === "/src/pages/index.astro";
 
-      const fallbackTitle =
-        isRoot
-          ? "Root"
-          : (filePath
-              .split("/")
-              .pop()
-              ?.replace(".astro", "")
-              .replace(/-/g, " ")
-              .replace(/\b\w/g, (c) => c.toUpperCase()) ?? "");
+      const fallbackTitle = isRoot
+        ? "Root"
+        : (filePath
+            .split("/")
+            .pop()
+            ?.replace(".astro", "")
+            .replace(/-/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase()) ?? "");
 
       const pageTitle = module.title || fallbackTitle;
       const pageDescription = module.description;
       const pageIcon = module.icon;
 
-      return { href, title: pageTitle, description: pageDescription, icon: pageIcon, isRoot };
+      return {
+        href,
+        title: pageTitle,
+        description: pageDescription,
+        icon: pageIcon,
+        isRoot,
+      };
     }),
-    { href: "/partygif", title: "PartyGif", description: "Create party gifs client-side", icon: "🎉", isRoot: false },
-  ]
-  .toSorted((a, b) => {
-    if (a.isRoot) return -1;
-    if (b.isRoot) return 1;
-    return a.title.localeCompare(b.title);
-  });
+  {
+    href: "/partygif",
+    title: "PartyGif",
+    description: "Create party gifs client-side",
+    icon: "🎉",
+    isRoot: false,
+  },
+].toSorted((a, b) => {
+  if (a.isRoot) return -1;
+  if (b.isRoot) return 1;
+  return a.title.localeCompare(b.title);
+});
 ---
 
 <Layout title={title} description={description}>
-  <main class="min-h-screen px-6 py-20 bg-[#13151a] text-[#e5e5e5]">
-    <header class="text-center mb-12">
-      <h1 class="text-4xl font-bold mb-2 text-white">Site Map</h1>
+  <main class="min-h-screen px-6 py-8 text-white">
+    <!-- Background -->
+    <div class="pointer-events-none fixed inset-0 -z-10 bg-[#070A12]">
+      <div
+        class="absolute inset-0 bg-[radial-gradient(1200px_700px_at_20%_10%,rgba(120,119,198,0.28),transparent_55%),radial-gradient(900px_600px_at_80%_20%,rgba(56,189,248,0.20),transparent_60%),radial-gradient(900px_700px_at_50%_90%,rgba(34,211,238,0.14),transparent_60%)]"
+      >
+      </div>
+      <div
+        class="absolute inset-0 opacity-[0.10] [background-image:radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] [background-size:22px_22px]"
+      >
+      </div>
+      <div
+        class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/35"
+      >
+      </div>
+    </div>
+
+    <header class="mx-auto mb-10 max-w-4xl text-center">
+      <h1 class="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">
+        Site Map
+      </h1>
     </header>
 
-    <ul class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 max-w-4xl mx-auto">
+    <ul class="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {
         links.map(({ href, title, description, icon, isRoot }) => (
-          <li>
+          <li class="h-full">
             <a
               href={href}
-              class="block rounded-lg border border-[#22242c] bg-[#1b1d24]
-                   hover:bg-[#22242c]
-                   transition-colors py-6 px-4 font-medium text-white h-full
-                   flex flex-col items-center justify-center gap-2"
+              class="group relative flex h-full flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border border-white/12 bg-white/[0.06] px-5 py-7 text-center
+                     shadow-[0_10px_30px_-18px_rgba(0,0,0,0.65)] backdrop-blur-xl
+                     transition-[transform,background-color,border-color,box-shadow,filter] duration-150 ease-out
+                     hover:border-white/18 hover:bg-white/[0.09]
+                     hover:shadow-[0_18px_40px_-22px_rgba(0,0,0,0.75)]
+                     active:translate-y-0 active:scale-[0.99]
+                     focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60"
             >
-              {icon && <span class="text-4xl" aria-hidden="true">{icon}</span>}
-              <span class="text-lg font-semibold">{isRoot ? "Home" : title}</span>
-              {description && (
-                <span class="text-sm text-gray-400 text-center mt-1">
-                  {isRoot ? "" : description}
+              <span class="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100">
+                <span class="absolute -left-24 -top-24 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
+                <span class="absolute -right-24 -bottom-24 h-64 w-64 rounded-full bg-sky-300/10 blur-2xl" />
+              </span>
+              <span class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+
+              {icon && (
+                <span
+                  class="text-4xl drop-shadow-[0_6px_18px_rgba(0,0,0,0.35)]
+                         transition-transform duration-150 ease-out
+                         group-hover:scale-[1.04] group-active:scale-[1.01]"
+                  aria-hidden="true"
+                >
+                  {icon}
                 </span>
+              )}
+
+              <span class="text-lg font-semibold tracking-tight">
+                {isRoot ? "Home" : title}
+              </span>
+
+              {description && !isRoot && (
+                <span class="mt-0.5 text-sm text-white/65">{description}</span>
               )}
             </a>
           </li>
