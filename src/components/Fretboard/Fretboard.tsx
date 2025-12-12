@@ -1,81 +1,38 @@
-import { useMemo, useCallback, Fragment } from "react";
+import { useCallback, Fragment } from "react";
 import { cn } from "@/lib/utils";
 import { FretboardInlay } from "./FretboardInlay";
 import { FretboardButton } from "./FretboardButton";
+import { guitarNote, type Note } from "./notes";
 
-// Standard guitar position markers (1-indexed)
 const markerFrets = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
 const doubleMarkerFrets = [12, 24];
 const frets = 24;
 const nutWidthPx = 10;
 
-const NOTE_ORDER: string[] = [
-  "C",
-  "C#",
-  "D",
-  "D#",
-  "E",
-  "F",
-  "F#",
-  "G",
-  "G#",
-  "A",
-  "A#",
-  "B",
-];
-
-function normalizeNoteName(n: string) {
-  const s = n.trim().toUpperCase().replace(/\s+/g, "");
-  const flatMap: Record<string, string> = {
-    DB: "C#",
-    EB: "D#",
-    GB: "F#",
-    AB: "G#",
-    BB: "A#",
-  };
-  return flatMap[s] ?? s;
-}
-
-function noteAt(openNote: string, semitoneOffset: number) {
-  const n = normalizeNoteName(openNote);
-  const startIdx = NOTE_ORDER.indexOf(n);
-  if (startIdx === -1) return openNote;
-  const idx = (startIdx + semitoneOffset) % 12;
-  return NOTE_ORDER[(idx + 12) % 12];
-}
-
-export type StringFret = `${number}:${number}`;
+type FretboardProps = {
+  onPress: (note: Note) => void;
+  tuning?: string[];
+  octaves?: number[];
+  showNoteNames?: boolean;
+  marked?: Set<Note>;
+};
 
 export const Fretboard = ({
-  onFretPress,
+  onPress,
   tuning = ["E", "A", "D", "G", "B", "E"],
+  octaves = [2, 2, 3, 3, 3, 4],
   showNoteNames = false,
-  markedNotes = [],
-}: {
-  onFretPress?: (pos: {
-    string: number;
-    fret: number;
-    stringFret: StringFret;
-    noteName?: string;
-  }) => void;
-  tuning?: string[];
-  showNoteNames?: boolean;
-  markedNotes?: StringFret[];
-}) => {
-  const strings = tuning.length;
+  marked = new Set(),
+}: FretboardProps) => {
+  const totalStrings = tuning.length;
 
-  const markedSet = useMemo(
-    () => new Set<StringFret>(markedNotes),
-    [markedNotes],
+  const getNote = useCallback(
+    (stringNumber: number, fret: number): Note => {
+      const index = totalStrings - stringNumber;
+      return guitarNote(index, fret, tuning, octaves);
+    },
+    [tuning, octaves, totalStrings],
   );
-  const isMarked = useCallback(
-    (stringFret: StringFret) => markedSet.has(stringFret),
-    [markedSet],
-  );
-
-  // Render top row as highest string (common visual); tuning is expected low->high by default.
-  const getOpenForStringRow = (stringIdx: number) =>
-    tuning[strings - 1 - stringIdx] ?? "E";
 
   return (
     <div
@@ -104,30 +61,27 @@ export const Fretboard = ({
               >
                 <div className="pointer-events-none absolute inset-0 bg-foreground/80" />
                 <div className="absolute inset-0 pointer-events-none">
-                  {Array.from({ length: strings }).map((_, stringIdx) => {
-                    const stringNumber = stringIdx + 1;
-                    const topPct = ((stringIdx + 0.5) / strings) * 100;
+                  {Array.from({ length: totalStrings }).map((_, rowIndex) => {
+                    const stringNumber = rowIndex + 1;
+                    const topPct = ((rowIndex + 0.5) / totalStrings) * 100;
 
-                    const openNote = getOpenForStringRow(stringIdx);
-                    const noteName = noteAt(openNote, 0);
-
-                    const stringFret = `${stringNumber}:0` as const;
-                    const marked = isMarked(stringFret);
+                    const note = getNote(stringNumber, 0);
+                    const noteName = note.slice(0, -1);
 
                     return (
                       <FretboardButton
-                        key={stringFret}
+                        key={`${stringNumber}:0`}
                         stringNumber={stringNumber}
                         fret={0}
                         noteName={noteName}
-                        marked={marked}
+                        marked={marked.has(note)}
                         showNoteNames={showNoteNames}
                         position={{
                           top: `${topPct}%`,
                           left: `${nutWidthPx / 2}px`,
                         }}
                         onNut
-                        onPress={onFretPress}
+                        onPress={() => onPress(note)}
                       />
                     );
                   })}
@@ -138,14 +92,14 @@ export const Fretboard = ({
                   className="grid h-full"
                   style={{
                     gridTemplateColumns: `repeat(${frets}, minmax(0, 1fr))`,
-                    gridTemplateRows: `repeat(${strings}, minmax(0, 1fr))`,
+                    gridTemplateRows: `repeat(${totalStrings}, minmax(0, 1fr))`,
                   }}
                   aria-hidden="true"
                 >
-                  {Array.from({ length: strings }).map((_, stringIdx) =>
-                    Array.from({ length: frets }).map((__, fretIdx) => (
+                  {Array.from({ length: totalStrings }).map((_, rowIndex) =>
+                    Array.from({ length: frets }).map((__, fretIndex) => (
                       <div
-                        key={`${stringIdx}:${fretIdx}`}
+                        key={`${rowIndex}:${fretIndex}`}
                         className={cn(
                           "relative",
                           "before:absolute before:left-0 before:top-1/2 before:w-full before:-translate-y-1/2",
@@ -156,36 +110,32 @@ export const Fretboard = ({
                   )}
                 </div>
                 <div className="absolute inset-0 pointer-events-none">
-                  {Array.from({ length: strings }).map((_, stringIdx) => {
-                    const stringNumber = stringIdx + 1;
-                    const topPct = ((stringIdx + 0.5) / strings) * 100;
-                    const openNote = getOpenForStringRow(stringIdx);
+                  {Array.from({ length: totalStrings }).map((_, rowIndex) => {
+                    const stringNumber = rowIndex + 1;
+                    const topPct = ((rowIndex + 0.5) / totalStrings) * 100;
 
                     return (
                       <Fragment key={stringNumber}>
-                        {Array.from({ length: frets }).map((__, fretIdx) => {
-                          const fretNumber = fretIdx + 1;
+                        {Array.from({ length: frets }).map((__, fretIndex) => {
+                          const fretNumber = fretIndex + 1;
                           const leftPct = ((fretNumber - 0.5) / frets) * 100;
 
-                          const noteName = noteAt(openNote, fretNumber);
-
-                          const stringFret =
-                            `${stringNumber}:${fretNumber}` as const;
-                          const marked = isMarked(stringFret);
+                          const note = getNote(stringNumber, fretNumber);
+                          const noteName = note.slice(0, -1);
 
                           return (
                             <FretboardButton
-                              key={stringFret}
+                              key={`${stringNumber}:${fretNumber}`}
                               stringNumber={stringNumber}
                               fret={fretNumber}
                               noteName={noteName}
-                              marked={marked}
+                              marked={marked.has(note)}
                               showNoteNames={showNoteNames}
                               position={{
                                 top: `${topPct}%`,
                                 left: `${leftPct}%`,
                               }}
-                              onPress={onFretPress}
+                              onPress={() => onPress(note)}
                             />
                           );
                         })}

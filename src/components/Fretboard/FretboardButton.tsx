@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
-import type { StringFret } from "./Fretboard";
 
 type FretboardButtonProps = {
   stringNumber: number;
@@ -8,17 +7,9 @@ type FretboardButtonProps = {
   noteName: string;
   marked: boolean;
   showNoteNames: boolean;
-  position: {
-    top: string;
-    left: string;
-  };
+  position: { top: string; left: string };
   onNut?: boolean;
-  onPress?: (pos: {
-    string: number;
-    fret: number;
-    stringFret: StringFret;
-    noteName?: string;
-  }) => void;
+  onPress: () => void;
 };
 
 const baseBtnSize = "size-[clamp(22px,2.4vw,34px)]";
@@ -72,7 +63,6 @@ export const FretboardButton = ({
   onNut = false,
   onPress,
 }: FretboardButtonProps) => {
-  const stringFret = `${stringNumber}:${fret}` as StringFret;
   const buttonClasses = useMemo(() => {
     if (marked) return markedClasses;
     if (showNoteNames) {
@@ -85,14 +75,7 @@ export const FretboardButton = ({
     <button
       type="button"
       aria-label={`String ${stringNumber}, ${fret === 0 ? "open" : `fret ${fret}`} (${noteName})`}
-      onClick={() =>
-        onPress?.({
-          string: stringNumber,
-          fret,
-          stringFret,
-          noteName,
-        })
-      }
+      onClick={onPress}
       className={cn(
         "pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2",
         onNut ? "z-20" : "z-10",
