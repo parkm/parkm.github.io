@@ -16,8 +16,19 @@ const WHITE_NOTES = ["C", "D", "E", "F", "G", "A", "B"];
 
 export type Note = `${(typeof NOTES)[number]}${number}`;
 
+const flatToSharp: Record<string, string> = {
+  DB: "C#",
+  EB: "D#",
+  GB: "F#",
+  AB: "G#",
+  BB: "A#",
+};
+
 const toMidi = (note: string, octave: number) => {
-  const normalized = note.toUpperCase().replace("B", "#");
+  let normalized = note.toUpperCase();
+  if (normalized.endsWith("B") && normalized.length === 2) {
+    normalized = flatToSharp[normalized] || normalized;
+  }
   const index = NOTES.indexOf(normalized as (typeof NOTES)[number]);
   return (octave + 1) * 12 + index;
 };
