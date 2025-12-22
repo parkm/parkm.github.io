@@ -1,0 +1,12 @@
+---
+export const title = "Fractal";
+export const description = "Mandelbrot set fractal visualization";
+export const icon = "🌀";
+
+import Layout from "../layouts/Layout.astro";
+import { Fractal as FractalComponent } from "../components/Fractal/Fractal.tsx";
+---
+
+<Layout title={title} description={description}>
+  <FractalComponent client:only="react" />
+</Layout>
