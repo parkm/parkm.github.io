@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef } from "react";
+import { clamp } from "@/lib/utils";
 
 export type Vec2 = { x: number; y: number };
 
@@ -25,10 +26,6 @@ const PALETTE = {
 export const DEFAULT_CENTER: Vec2 = { x: -0.745, y: 0.186 };
 export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 10_000_000;
-
-function clamp(n: number, lo: number, hi: number): number {
-  return Math.min(hi, Math.max(lo, n));
-}
 
 const vertexShaderSource = `
   attribute vec2 a_position;

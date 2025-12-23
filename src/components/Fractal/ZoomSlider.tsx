@@ -1,10 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { clamp } from "@/lib/utils";
 
 const ZOOM_SLIDER_HIDE_DELAY_MS = 750;
-
-function clamp(n: number, lo: number, hi: number): number {
-  return Math.min(hi, Math.max(lo, n));
-}
 
 function tToZoom(t: number, minZoom: number, maxZoom: number): number {
   const tt = clamp(t, 0, 1);

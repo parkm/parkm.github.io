@@ -8,7 +8,7 @@ import React, {
 import { parseAsInteger, useQueryState } from "nuqs";
 import { NuqsAdapter } from "nuqs/adapters/react";
 import type { Vec2, Grid, Animation } from "./types";
-import { clamp } from "./utils";
+import { clamp } from "@/lib/utils";
 import { useRafLoop } from "./useRafLoop";
 import { Toolbar } from "./Toolbar";
 import { PixiStage } from "./PixiStage";

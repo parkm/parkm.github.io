@@ -1,6 +1,3 @@
-export const clamp = (n: number, min: number, max: number): number =>
-  Math.min(max, Math.max(min, n));
-
 export const indexToColRow = (
   idx: number,
   cols: number,

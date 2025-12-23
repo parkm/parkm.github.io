@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { clamp } from "@/lib/utils";
 import type { Vec2 } from "./MandelbrotVisualization";
 
 const DEFAULT_CONFIG = {
@@ -11,10 +12,6 @@ const DEFAULT_CONFIG = {
   minZoom: 0.1,
   maxZoom: 10_000_000,
 } as const;
-
-function clamp(n: number, lo: number, hi: number): number {
-  return Math.min(hi, Math.max(lo, n));
-}
 
 type UseArrowKeyPanOptions = {
   center: Vec2;

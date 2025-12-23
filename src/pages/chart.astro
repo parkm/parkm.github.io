@@ -1,0 +1,13 @@
+---
+export const title = "Chart";
+export const description = "A tool for transcribing songs";
+export const icon = "🎼";
+
+import Layout from "../layouts/Layout.astro";
+import { Chart as ChartComponent } from "../components/Chart/Chart.tsx";
+---
+
+<Layout title={title} description={description}>
+  <ChartComponent client:only="react" />
+</Layout>
+
