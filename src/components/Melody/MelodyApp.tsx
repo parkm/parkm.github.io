@@ -2,14 +2,14 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { Play, Pause } from "lucide-react";
+import { parseNotes } from "./parser/noteParser";
 
 export function MelodyApp() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [text, setText] = useState("");
   const audioContextRef = useRef<AudioContext | null>(null);
-  const oscillatorRef = useRef<OscillatorNode | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const stopPlaybackRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -17,54 +17,67 @@ export function MelodyApp() {
     }
   }, []);
 
-  const startAudio = () => {
+  const playNotes = async () => {
     if (!audioContextRef.current) {
       audioContextRef.current = new AudioContext();
     }
 
     const ctx = audioContextRef.current;
+    const notes = parseNotes(text);
 
-    const oscillator = ctx.createOscillator();
-    const gainNode = ctx.createGain();
+    if (notes.length === 0) {
+      setIsPlaying(false);
+      return;
+    }
 
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(220, ctx.currentTime);
+    stopPlaybackRef.current = false;
 
-    gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
+    const noteDuration = 0.5;
 
-    oscillator.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    for (let i = 0; i < notes.length; i++) {
+      if (stopPlaybackRef.current) {
+        break;
+      }
 
-    oscillator.start();
+      const note = notes[i];
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
 
-    oscillatorRef.current = oscillator;
-    gainNodeRef.current = gainNode;
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(note.frequency, ctx.currentTime);
+
+      gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      const startTime = ctx.currentTime;
+      oscillator.start(startTime);
+      oscillator.stop(startTime + noteDuration);
+
+      await new Promise((resolve) => setTimeout(resolve, noteDuration * 1000));
+    }
+
+    setIsPlaying(false);
   };
 
-  const stopAudio = () => {
-    if (oscillatorRef.current) {
-      oscillatorRef.current.stop();
-      oscillatorRef.current.disconnect();
-      oscillatorRef.current = null;
-    }
-    if (gainNodeRef.current) {
-      gainNodeRef.current.disconnect();
-      gainNodeRef.current = null;
-    }
+  const stopPlayback = () => {
+    stopPlaybackRef.current = true;
   };
 
   const togglePlay = () => {
     if (isPlaying) {
-      stopAudio();
+      stopPlayback();
+      setIsPlaying(false);
     } else {
-      startAudio();
+      setIsPlaying(true);
+      playNotes();
     }
-    setIsPlaying(!isPlaying);
   };
 
   useEffect(() => {
     return () => {
-      stopAudio();
+      stopPlaybackRef.current = true;
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
@@ -100,7 +113,7 @@ export function MelodyApp() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Write your melody..."
-          className="flex-1 resize-none text-center text-lg"
+          className="flex-1 resize-none text-lg"
           autoFocus
         />
       </div>
