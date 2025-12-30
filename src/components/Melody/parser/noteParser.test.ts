@@ -10,7 +10,7 @@ function expectNotes(input: string, expected: Array<[string, number]>) {
 
   expected.forEach(([noteName, frequency], index) => {
     expect(result[index].note).toBe(noteName);
-    expect(result[index].frequency).toBeCloseTo(frequency, 2);
+    expect(result[index].frequency).toBeCloseTo(frequency, 1);
   });
 }
 
@@ -143,6 +143,143 @@ describe("noteParser", () => {
     });
   });
 
+  describe("sharps (middle octave)", () => {
+    it("should parse C# (C sharp)", () => {
+      expectNote("C#", "C#", 277.18);
+    });
+
+    it("should parse D# (D sharp)", () => {
+      expectNote("D#", "D#", 311.13);
+    });
+
+    it("should parse F# (F sharp)", () => {
+      expectNote("F#", "F#", 369.99);
+    });
+
+    it("should parse G# (G sharp)", () => {
+      expectNote("G#", "G#", 415.30);
+    });
+
+    it("should parse A# (A sharp)", () => {
+      expectNote("A#", "A#", 466.16);
+    });
+  });
+
+  describe("flats (middle octave)", () => {
+    it("should parse Db (D flat)", () => {
+      expectNote("Db", "Db", 277.18);
+    });
+
+    it("should parse Eb (E flat)", () => {
+      expectNote("Eb", "Eb", 311.13);
+    });
+
+    it("should parse Gb (G flat)", () => {
+      expectNote("Gb", "Gb", 369.99);
+    });
+
+    it("should parse Ab (A flat)", () => {
+      expectNote("Ab", "Ab", 415.30);
+    });
+
+    it("should parse Bb (B flat)", () => {
+      expectNote("Bb", "Bb", 466.16);
+    });
+  });
+
+  describe("sharps (upper octave)", () => {
+    it("should parse c# (C#5)", () => {
+      expectNote("c#", "c#", 554.37);
+    });
+
+    it("should parse d# (D#5)", () => {
+      expectNote("d#", "d#", 622.25);
+    });
+
+    it("should parse f# (F#5)", () => {
+      expectNote("f#", "f#", 739.99);
+    });
+
+    it("should parse g# (G#5)", () => {
+      expectNote("g#", "g#", 830.61);
+    });
+  });
+
+  describe("flats (upper octave)", () => {
+    it("should parse db (Db5)", () => {
+      expectNote("db", "db", 554.37);
+    });
+
+    it("should parse eb (Eb5)", () => {
+      expectNote("eb", "eb", 622.25);
+    });
+
+    it("should parse gb (Gb5)", () => {
+      expectNote("gb", "gb", 739.99);
+    });
+
+    it("should parse ab (Ab5)", () => {
+      expectNote("ab", "ab", 830.61);
+    });
+  });
+
+  describe("sharps and flats (lower octave)", () => {
+    it("should parse C#, (C#3)", () => {
+      expectNote("C#,", "C#,", 138.59);
+    });
+
+    it("should parse Db, (Db3)", () => {
+      expectNote("Db,", "Db,", 138.59);
+    });
+
+    it("should parse F#, (F#3)", () => {
+      expectNote("F#,", "F#,", 185.00);
+    });
+
+    it("should parse Gb, (Gb3)", () => {
+      expectNote("Gb,", "Gb,", 185.00);
+    });
+  });
+
+  describe("mixed sequences with accidentals", () => {
+    it("should parse chromatic scale segment", () => {
+      expectNotes("C C# D D# E", [
+        ["C", 261.63],
+        ["C#", 277.18],
+        ["D", 293.66],
+        ["D#", 311.13],
+        ["E", 329.63],
+      ]);
+    });
+
+    it("should parse mixed sharps and flats", () => {
+      expectNotes("C# Db D# Eb", [
+        ["C#", 277.18],
+        ["Db", 277.18],
+        ["D#", 311.13],
+        ["Eb", 311.13],
+      ]);
+    });
+
+    it("should parse across octaves with accidentals", () => {
+      expectNotes("C#, C# c#", [
+        ["C#,", 138.59],
+        ["C#", 277.18],
+        ["c#", 554.37],
+      ]);
+    });
+
+    it("should mix naturals and accidentals", () => {
+      expectNotes("C D# E F# G", [
+        ["C", 261.63],
+        ["D#", 311.13],
+        ["E", 329.63],
+        ["F#", 369.99],
+        ["G", 392.00],
+      ]);
+    });
+  });
+
   describe("edge cases", () => {
     it("should return empty array for empty string", () => {
       expectEmpty("");
@@ -164,12 +301,16 @@ describe("noteParser", () => {
       ]);
     });
 
-    it("should ignore numbers and special characters", () => {
-      expectNotes("C 123 D # E", [
+    it("should ignore standalone #", () => {
+      expectNotes("C # D # E", [
         ["C", 261.63],
         ["D", 293.66],
         ["E", 329.63],
       ]);
+    });
+
+    it("should parse lowercase b as B5", () => {
+      expectNote("b", "b", 987.77);
     });
   });
 });

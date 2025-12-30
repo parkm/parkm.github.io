@@ -30,22 +30,40 @@ export function parseNotes(text: string): Note[] {
 }
 
 function parseNote(token: string): Note | null {
-  let noteName = '';
   let octaveModifier = 0;
+  let workingToken = token;
 
-  if (token.endsWith(',')) {
-    noteName = token.slice(0, -1).toUpperCase();
+  // Check for lower octave comma suffix
+  if (workingToken.endsWith(',')) {
     octaveModifier = -1;
+    workingToken = workingToken.slice(0, -1);
+  }
+
+  if (workingToken.length === 0) {
+    return null;
+  }
+
+  // Get the base note
+  const firstChar = workingToken[0];
+  let noteName = '';
+
+  if (firstChar >= 'A' && firstChar <= 'G') {
+    noteName = firstChar;
+  } else if (firstChar >= 'a' && firstChar <= 'g') {
+    noteName = firstChar.toUpperCase();
+    octaveModifier += 1;
   } else {
-    const char = token[0];
-    if (char >= 'A' && char <= 'G') {
-      noteName = char;
-      octaveModifier = 0;
-    } else if (char >= 'a' && char <= 'g') {
-      noteName = char.toUpperCase();
-      octaveModifier = 1;
-    } else {
-      return null;
+    return null;
+  }
+
+  // Check for accidental (# or b)
+  let accidentalModifier = 0;
+  if (workingToken.length > 1) {
+    const accidental = workingToken[1];
+    if (accidental === '#') {
+      accidentalModifier = 1;
+    } else if (accidental === 'b') {
+      accidentalModifier = -1;
     }
   }
 
@@ -54,7 +72,8 @@ function parseNote(token: string): Note | null {
     return null;
   }
 
-  const frequency = baseFrequency * Math.pow(2, octaveModifier);
+  let frequency = baseFrequency * Math.pow(2, octaveModifier);
+  frequency = frequency * Math.pow(2, accidentalModifier / 12);
 
   return {
     note: token,
