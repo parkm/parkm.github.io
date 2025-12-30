@@ -1,0 +1,16 @@
+---
+export const title = "Melody";
+export const description = "A melody writing interface";
+export const icon = "🎵";
+
+import { MelodyApp } from "../components/Melody/MelodyApp.tsx";
+import DarkModeToggle from "../components/DarkModeToggle.astro";
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title={title} description={description}>
+  <MelodyApp client:only="react" />
+  <div class="fixed bottom-5 right-5">
+    <DarkModeToggle />
+  </div>
+</Layout>
