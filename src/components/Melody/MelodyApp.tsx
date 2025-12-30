@@ -7,6 +7,7 @@ import { parseNotes } from "./parser/noteParser";
 export function MelodyApp() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [text, setText] = useState("");
+  const [parsedNotes, setParsedNotes] = useState<Array<{note: string, frequency: number}>>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const stopPlaybackRef = useRef<boolean>(false);
@@ -16,6 +17,11 @@ export function MelodyApp() {
       textareaRef.current.focus();
     }
   }, []);
+
+  useEffect(() => {
+    const notes = parseNotes(text);
+    setParsedNotes(notes);
+  }, [text]);
 
   const playNotes = async () => {
     if (!audioContextRef.current) {
@@ -87,7 +93,7 @@ export function MelodyApp() {
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-4xl h-full flex flex-col gap-4 py-8">
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center gap-2">
           <Button
             onClick={togglePlay}
             variant="outline"
@@ -106,6 +112,15 @@ export function MelodyApp() {
               </>
             )}
           </Button>
+          {parsedNotes.length > 0 && (
+            <div className="text-sm text-muted-foreground font-mono">
+              {parsedNotes.map((n, i) => (
+                <span key={i} className="mr-3">
+                  {n.note}: {n.frequency.toFixed(2)}Hz
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <Textarea

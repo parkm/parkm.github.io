@@ -30,21 +30,14 @@ export function parseNotes(text: string): Note[] {
 }
 
 function parseNote(token: string): Note | null {
-  let octaveModifier = 0;
-  let workingToken = token;
-
-  // Check for lower octave comma suffix
-  if (workingToken.endsWith(',')) {
-    octaveModifier = -1;
-    workingToken = workingToken.slice(0, -1);
-  }
-
-  if (workingToken.length === 0) {
+  if (token.length === 0) {
     return null;
   }
 
-  // Get the base note
-  const firstChar = workingToken[0];
+  let octaveModifier = 0;
+
+  // Get the base note (first character)
+  const firstChar = token[0];
   let noteName = '';
 
   if (firstChar >= 'A' && firstChar <= 'G') {
@@ -56,14 +49,27 @@ function parseNote(token: string): Note | null {
     return null;
   }
 
-  // Check for accidental (# or b)
+  // Check for accidental (# or b) - must be second character if present
   let accidentalModifier = 0;
-  if (workingToken.length > 1) {
-    const accidental = workingToken[1];
-    if (accidental === '#') {
+  let accidentalLength = 0;
+  if (token.length > 1) {
+    const secondChar = token[1];
+    if (secondChar === '#') {
       accidentalModifier = 1;
-    } else if (accidental === 'b') {
+      accidentalLength = 1;
+    } else if (secondChar === 'b') {
       accidentalModifier = -1;
+      accidentalLength = 1;
+    }
+  }
+
+  // Count octave modifiers (semicolons and commas) - everything after note and optional accidental
+  const octaveModifiers = token.slice(1 + accidentalLength);
+  for (const char of octaveModifiers) {
+    if (char === ';') {
+      octaveModifier += 1;
+    } else if (char === ',') {
+      octaveModifier -= 1;
     }
   }
 

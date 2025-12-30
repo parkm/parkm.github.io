@@ -104,6 +104,94 @@ describe("noteParser", () => {
     });
   });
 
+  describe("semicolon octave modifiers (raise octave)", () => {
+    it("should parse C; (C5) - same as c", () => {
+      expectNote("C;", "C;", 523.26);
+    });
+
+    it("should parse D; (D5)", () => {
+      expectNote("D;", "D;", 587.32);
+    });
+
+    it("should parse C;; (C6)", () => {
+      expectNote("C;;", "C;;", 1046.52);
+    });
+
+    it("should parse C;;; (C7)", () => {
+      expectNote("C;;;", "C;;;", 2093.04);
+    });
+
+    it("should verify C; and c are the same", () => {
+      const cSemi = parseNotes("C;")[0];
+      const cLower = parseNotes("c")[0];
+      expect(cSemi.frequency).toBeCloseTo(cLower.frequency, 1);
+    });
+  });
+
+  describe("comma octave modifiers (lower octave)", () => {
+    it("should parse C,, (C2)", () => {
+      expectNote("C,,", "C,,", 65.41);
+    });
+
+    it("should parse D,, (D2)", () => {
+      expectNote("D,,", "D,,", 73.42);
+    });
+
+    it("should parse C,,, (C1)", () => {
+      expectNote("C,,,", "C,,,", 32.70);
+    });
+  });
+
+  describe("mixed octave modifiers", () => {
+    it("should parse c; (C6)", () => {
+      expectNote("c;", "c;", 1046.52);
+    });
+
+    it("should parse c;; (C7)", () => {
+      expectNote("c;;", "c;;", 2093.04);
+    });
+
+    it("should parse c, (C4) - lowercase with comma", () => {
+      expectNote("c,", "c,", 261.63);
+    });
+
+    it("should parse c,, (C3)", () => {
+      expectNote("c,,", "c,,", 130.82);
+    });
+
+    it("should verify c, and C are the same", () => {
+      const cLowerComma = parseNotes("c,")[0];
+      const cUpper = parseNotes("C")[0];
+      expect(cLowerComma.frequency).toBeCloseTo(cUpper.frequency, 1);
+    });
+  });
+
+  describe("octave modifiers with accidentals", () => {
+    it("should parse C#; (C#5)", () => {
+      expectNote("C#;", "C#;", 554.37);
+    });
+
+    it("should parse Db;; (Db6)", () => {
+      expectNote("Db;;", "Db;;", 1108.73);
+    });
+
+    it("should parse F#, (F#3)", () => {
+      expectNote("F#,", "F#,", 185.00);
+    });
+
+    it("should parse Gb,, (Gb2)", () => {
+      expectNote("Gb,,", "Gb,,", 92.50);
+    });
+
+    it("should parse c#; (C#6)", () => {
+      expectNote("c#;", "c#;", 1108.73);
+    });
+
+    it("should parse db, (Db4)", () => {
+      expectNote("db,", "db,", 277.18);
+    });
+  });
+
   describe("multiple notes", () => {
     it("should parse C major scale in middle octave", () => {
       expectNotes("C D E F G A B", [
@@ -123,6 +211,18 @@ describe("noteParser", () => {
         ["C", 261.63],
         ["D", 293.66],
         ["c", 523.26],
+      ]);
+    });
+
+    it("should parse notes with octave modifiers", () => {
+      expectNotes("C,, C, C C; c c; c;;", [
+        ["C,,", 65.41],
+        ["C,", 130.82],
+        ["C", 261.63],
+        ["C;", 523.26],
+        ["c", 523.26],
+        ["c;", 1046.52],
+        ["c;;", 2093.04],
       ]);
     });
 
@@ -277,6 +377,19 @@ describe("noteParser", () => {
         ["F#", 369.99],
         ["G", 392.00],
       ]);
+    });
+  });
+
+  describe("specific bug tests", () => {
+    it("should parse 'c c;' as two different frequencies an octave apart", () => {
+      const result = parseNotes("c c;");
+      expect(result).toHaveLength(2);
+      expect(result[0].note).toBe("c");
+      expect(result[1].note).toBe("c;");
+      expect(result[0].frequency).toBeCloseTo(523.26, 1);
+      expect(result[1].frequency).toBeCloseTo(1046.52, 1);
+      // Verify they are exactly one octave apart
+      expect(result[1].frequency / result[0].frequency).toBeCloseTo(2, 1);
     });
   });
 
