@@ -15,6 +15,9 @@ export default defineConfig({
 
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      allowedHosts: ["pi.lan"],
+    },
   },
 
   integrations: [react()],
