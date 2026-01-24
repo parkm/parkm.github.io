@@ -7,11 +7,6 @@ import Layout from "../layouts/Layout.astro";
 ---
 
 <Layout title={title} description={description}>
-  <!-- Hidden HTML5 audio element to unlock iOS Web Audio -->
-  <audio id="unlockAudio" style="display:none">
-    <source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=" type="audio/wav">
-  </audio>
-
   <div class="p-5">
     <!-- Frequency Display -->
     <div class="text-center mb-6 p-6 text-white">
@@ -42,13 +37,6 @@ import Layout from "../layouts/Layout.astro";
 
     <!-- Controls -->
     <div class="flex flex-wrap gap-3 justify-center items-center mt-6">
-      <button
-        id="startBtn"
-        class="px-6 py-3 text-lg font-semibold rounded-lg transition-all bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-md border border-blue-400/20 hover:from-blue-500 hover:to-blue-400 active:scale-95"
-      >
-        TAP TO START
-      </button>
-
       <div
         class="flex bg-slate-900/90 border border-blue-500/20 rounded-xl p-1 gap-1 shadow-md"
       >
@@ -103,10 +91,13 @@ import Layout from "../layouts/Layout.astro";
       id="status"
       class="text-center text-blue-400 font-medium mt-3 min-h-[20px]"
     >
+      Initializing...
     </div>
   </div>
 
   <script>
+    import { initAudio as initAudioUtil } from "../lib/utils/audioInit";
+
     const canvas = document.getElementById(
       "spectrumCanvas"
     ) as HTMLCanvasElement;
@@ -138,9 +129,7 @@ import Layout from "../layouts/Layout.astro";
     const centsOffset = document.getElementById(
       "centsOffset"
     ) as HTMLDivElement;
-    const startBtn = document.getElementById("startBtn") as HTMLButtonElement;
     const status = document.getElementById("status") as HTMLDivElement;
-    const unlockAudio = document.getElementById("unlockAudio") as HTMLAudioElement;
 
     let audioContext: AudioContext | null = null;
     let oscillator: OscillatorNode | null = null;
@@ -502,48 +491,33 @@ import Layout from "../layouts/Layout.astro";
       return impulse;
     }
 
-    function initAudio(): void {
+    async function setupAudio(): Promise<void> {
       try {
-        // iOS Safari Fix: Play HTML5 audio first to "unlock" Web Audio API
-        // iOS won't output Web Audio API sound until an HTML5 audio element has been played
-        // See: https://github.com/feross/unmute-ios-audio
-        unlockAudio.volume = 0.01;
-        unlockAudio.play().catch(() => {});
+        audioContext = await initAudioUtil();
 
-        // Use setTimeout to avoid hanging on the audio play promise
-        setTimeout(() => {
-          const ctor: typeof AudioContext | undefined =
-            window.AudioContext || (window as any).webkitAudioContext;
-          if (!ctor) throw new Error("AudioContext unsupported");
+        gainNode = audioContext.createGain();
+        gainNode.connect(audioContext.destination);
+        gainNode.gain.value = 0.25;
 
-          audioContext = new ctor();
+        convolver = audioContext.createConvolver();
+        convolver.buffer = createImpulseResponse(1.2, 4.5);
 
-          // iOS requires AudioContext to be resumed on user gesture
-          if (audioContext.state === "suspended") {
-            audioContext.resume();
-          }
+        dryGain = audioContext.createGain();
+        wetGain = audioContext.createGain();
 
-          gainNode = audioContext.createGain();
-          gainNode.connect(audioContext.destination);
-          gainNode.gain.value = 0.25;
+        convolver.connect(wetGain);
+        wetGain.connect(audioContext.destination);
+        dryGain.connect(audioContext.destination);
 
-          convolver = audioContext.createConvolver();
-          convolver.buffer = createImpulseResponse(1.2, 4.5);
-
-          dryGain = audioContext.createGain();
-          wetGain = audioContext.createGain();
-
-          convolver.connect(wetGain);
-          wetGain.connect(audioContext.destination);
-          dryGain.connect(audioContext.destination);
-
-          isAudioReady = true;
-          status.textContent = "✓ Audio ready! Now touch the spectrum or piano";
-          startBtn.textContent = "AUDIO READY";
-          startBtn.classList.add("ready");
-        }, 200);
+        isAudioReady = true;
+        status.textContent = "✓ Audio ready! Touch the spectrum or piano to play";
       } catch (e) {
-        status.textContent = "✗ Audio failed to initialize";
+        const errorMsg = e instanceof Error ? e.message : String(e);
+        if (errorMsg.includes('declined')) {
+          status.textContent = "Audio disabled - app will run in silent mode";
+        } else {
+          status.textContent = "✗ Audio initialization failed";
+        }
         console.error(e);
       }
     }
@@ -551,9 +525,7 @@ import Layout from "../layouts/Layout.astro";
     function startTone(freq: number): void {
       if (!audioContext || !isAudioReady) return;
 
-      // iOS Safari Fix: Resume AudioContext if suspended
-      // iOS suspends AudioContext when the page loses focus (tab switch, app switch)
-      // See: https://bugs.webkit.org/show_bug.cgi?id=237878
+      // Extra safety: Resume if suspended (handled by audioInit util, but kept as fallback)
       if (audioContext.state === "suspended") {
         audioContext.resume();
       }
@@ -815,7 +787,7 @@ import Layout from "../layouts/Layout.astro";
 
     function handleStart(e: MouseEvent | TouchEvent): void {
       if (!isAudioReady) {
-        status.textContent = "⚠ Please tap START button first";
+        status.textContent = "⚠ Audio not enabled";
         return;
       }
 
@@ -869,7 +841,7 @@ import Layout from "../layouts/Layout.astro";
 
     function handlePianoStart(e: MouseEvent | TouchEvent): void {
       if (!isAudioReady) {
-        status.textContent = "⚠ Please tap START button first";
+        status.textContent = "⚠ Audio not enabled";
         return;
       }
 
@@ -925,11 +897,6 @@ import Layout from "../layouts/Layout.astro";
         status.textContent = "✓ Ready - Touch spectrum or piano to play";
     }
 
-    startBtn.addEventListener("click", (e: MouseEvent) => {
-      e.preventDefault();
-      if (!isAudioReady) initAudio();
-    });
-
     document
       .querySelectorAll<HTMLInputElement>("input[name='soundMode']")
       .forEach((radio) => {
@@ -976,17 +943,8 @@ import Layout from "../layouts/Layout.astro";
     pianoCanvas.addEventListener("mouseup", handlePianoEnd);
     pianoCanvas.addEventListener("mouseleave", handlePianoEnd);
 
-    // iOS Safari Fix: Handle page visibility changes
-    // iOS suspends AudioContext when page is backgrounded (tab/app switch)
-    // Resume it when page becomes visible again
-    // See: https://bugs.webkit.org/show_bug.cgi?id=237878
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && audioContext && audioContext.state === "suspended") {
-        audioContext.resume();
-      }
-    });
-
     window.addEventListener("resize", resizeCanvas);
     resizeCanvas();
+    setupAudio();
   </script>
 </Layout>
