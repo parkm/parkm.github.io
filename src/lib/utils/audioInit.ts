@@ -50,13 +50,21 @@ export async function initAudio(): Promise<AudioContext> {
       </div>
     `;
 
+    // Create fullscreen dimmer
+    const dimmer = document.createElement("div");
+    dimmer.id = "audio-init-dimmer";
+    dimmer.className =
+      "fixed inset-0 z-40 bg-black/50 opacity-0 transition-opacity duration-300";
+    document.body.appendChild(dimmer);
+
     // Inject into DOM
     document.body.appendChild(banner);
 
-    // Slide down animation
+    // Slide down animation + fade in dimmer
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         banner.classList.remove("-translate-y-full");
+        dimmer.classList.remove("opacity-0");
       });
     });
 
@@ -78,11 +86,13 @@ export async function initAudio(): Promise<AudioContext> {
     let audioContext: AudioContext | null = null;
 
     const cleanup = () => {
-      // Slide up animation
+      // Slide up animation + fade out dimmer
       banner.classList.add("-translate-y-full");
+      dimmer.classList.add("opacity-0");
       // Remove from DOM after animation
       setTimeout(() => {
         banner.remove();
+        dimmer.remove();
         unlockAudio.remove();
       }, 300);
     };
