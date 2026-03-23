@@ -50,12 +50,18 @@ const projects: {
       <div class="hero-content">
         <div class="hero-header">
           <div>
-            <h1><a href={personalInfo.github} class="name-link">{personalInfo.name}</a></h1>
-            <a href={personalInfo.linkedin} class="job-title-link">Frontend Developer</a>
+            <h1>
+              <a href={personalInfo.github} class="name-link"
+                >{personalInfo.name}</a
+              >
+            </h1>
+            <a href={personalInfo.linkedin} class="job-title-link"
+              >Frontend Developer</a
+            >
           </div>
           <div class="flex items-center gap-4">
-              <GithubIcon href={personalInfo.github} width={32} height={32} />
-              <LinkedinIcon href={personalInfo.linkedin} width={32} height={32} />
+            <GithubIcon href={personalInfo.github} width={32} height={32} />
+            <LinkedinIcon href={personalInfo.linkedin} width={32} height={32} />
           </div>
         </div>
       </div>
@@ -87,67 +93,80 @@ const projects: {
 
     <section aria-labelledby="work-experience" class="fade-in-section">
       <h2 id="work-experience">Work Experience</h2>
-      <div class="flex flex-col gap-16 mt-8">
+      <div class="flex flex-col gap-16 mt-8 mb-24">
         <section aria-labelledby="canopy" class="flex flex-col gap-8">
           <CanopyLogo fill="white" height="4rem" />
           <div class="time-period">Aug 2021 - Present</div>
           <p>
-            An accounting practice management application utilizing React and a
-            microservices architecture for the frontend.
-            I oversaw the implementation and maintenance of core features
-            such as CRM, email and calendar integrations, and a comment feed
-            system.
-            </p>
-          <p>
-Additionally, contributed to key infrastructure initiatives, including implementing @tanstack/react-query for caching and server state management, migrating hundreds of Enzyme tests to support updating React to its latest version, and creating a testing utility library to streamline test writing. Implemented various infrastructure components, including a high-performance dynamic table built for consistency and flexibility while minimizing complexity.
+            Canopy is an accounting practice management platform built on a
+            micro-frontend architecture with 50+ independently deployed React
+            applications. As a staff engineer on the platform team, I architect
+            and drive frontend infrastructure initiatives that
+            affect every service in the ecosystem.
           </p>
-        </section>
-        <section aria-labelledby="instructure" class="flex flex-col gap-8">
-          <InstructureLogo height="4rem" />
-          <div class="time-period">Jul 2016 - Jul 2021</div>
           <p>
-            The company behind the Canvas online learning management system.
-            Here I worked in professional services creating and maintaining
-            numerous custom integrations for the Canvas LMS. I worked fullstack
-            using Ruby on Rails, PostgreSQL, and React.
+            Led the adoption of @tanstack/react-query across the platform,
+            designing the shared caching architecture, type-safe query key
+            factories, and cross-service invalidation patterns that unified
+            server state management across all micro-frontends. Drove the
+            migration of 4,000+ Enzyme tests to React Testing Library across all
+            repositories, directly unblocking the upgrade to React 18, and built
+            a shared testing utility library and authored testing standards
+            adopted org-wide. Previously delivered core product features
+            including CRM, email and calendar integrations, and a real-time
+            comment feed.
           </p>
-        </section>
-        <section aria-labelledby="personal-projects" class="project-grid">
-          <h3 id="personal-projects" class="sr-only">Personal Projects</h3>
-          {
-            projects.map((project) => (
-              <ProjectCard
-                title={project.title}
-                description={project.description}
-                image={project.image}
-                link={project.link}
-              />
-            ))
-          }
         </section>
       </div>
+      <section aria-labelledby="instructure" class="flex flex-col gap-8">
+        <InstructureLogo height="4rem" />
+        <div class="time-period">Jul 2016 - Jul 2021</div>
+        <p>
+          The company behind the Canvas online learning management system. Here
+          I worked in professional services creating and maintaining numerous
+          custom integrations for the Canvas LMS. I worked fullstack using Ruby
+          on Rails, PostgreSQL, and React.
+        </p>
+      </section>
+      <section aria-labelledby="personal-projects" class="project-grid">
+        <h3 id="personal-projects" class="sr-only">Personal Projects</h3>
+        {
+          projects.map((project) => (
+            <ProjectCard
+              title={project.title}
+              description={project.description}
+              image={project.image}
+              link={project.link}
+            />
+          ))
+        }
+      </section>
     </section>
   </main>
-  <footer class="flex justify-between items-center">
-    <span>© {new Date().getFullYear()} Parker Miller</span>
-    <a href="/map" class="text-sm hover:text-white transition-colors hover:underline">Site Map</a>
-  </footer>
 </Layout>
+<footer class="flex justify-between items-center">
+  <span>© {new Date().getFullYear()} Parker Miller</span>
+  <a
+    href="/map"
+    class="text-sm hover:text-white transition-colors hover:underline"
+    >Site Map</a
+  >
+</footer>
 
 <style>
-  :root{
+  :root {
     --home-background: #13151a;
-		--home-accent: 136, 58, 234;
-		--home-accent-light: 224, 204, 250;
-		--home-accent-dark: 49, 10, 101;
-		--home-border-color: #464352;
-		--home-p-text-color: #e5e5e5;
-		--home-accent-gradient: linear-gradient(
-			45deg,
-			rgb(var(--home-accent)),
-			rgb(var(--home-accent-light)) 30%,
-			white 60%
-		);
+    --home-accent: 136, 58, 234;
+    --home-accent-light: 224, 204, 250;
+    --home-accent-dark: 49, 10, 101;
+    --home-border-color: #464352;
+    --home-p-text-color: #e5e5e5;
+    --home-accent-gradient: linear-gradient(
+      45deg,
+      rgb(var(--home-accent)),
+      rgb(var(--home-accent-light)) 30%,
+      white 60%
+    );
   }
 
   body {
@@ -195,7 +214,8 @@ Additionally, contributed to key infrastructure initiatives, including implement
     pointer-events: none;
   }
 
-  #gameOfLife, #snakeCrt {
+  #gameOfLife,
+  #snakeCrt {
     position: absolute;
     top: 0;
     left: 0;
@@ -250,15 +270,19 @@ Additionally, contributed to key infrastructure initiatives, including implement
     text-shadow: black 3px 3px;
   }
 
-  .name-link, .job-title-link {
+  .name-link,
+  .job-title-link {
     text-decoration: none;
     color: inherit;
     display: inline-block;
     position: relative;
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease;
   }
 
-  .name-link:hover, .job-title-link:hover {
+  .name-link:hover,
+  .job-title-link:hover {
     opacity: 0.85;
     transform: translateY(-1px);
   }
@@ -287,7 +311,7 @@ Additionally, contributed to key infrastructure initiatives, including implement
   }
 
   h2 {
-    font-size: 3.0rem;
+    font-size: 3rem;
     font-weight: 300;
     margin-bottom: 1rem;
     text-shadow: black 5px 5px 4px;
