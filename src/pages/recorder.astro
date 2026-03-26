@@ -1,0 +1,12 @@
+---
+export const title = "Recorder";
+export const description = "Record audio and slow it down while preserving pitch";
+export const icon = "🎙️";
+
+import Layout from "../layouts/Layout.astro";
+import { Recorder as RecorderComponent } from "../components/Recorder/Recorder.tsx";
+---
+
+<Layout title={title} description={description}>
+  <RecorderComponent client:only="react" />
+</Layout>
