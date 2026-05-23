@@ -11,14 +11,18 @@ type PageModule = {
   title?: string;
   description?: string;
   icon?: string;
+  category?: string;
 };
 
-let links = [
+const CATEGORY_ORDER = ["Tools", "Entertainment", "Other"];
+
+const allLinks = [
   ...Object.keys(modules)
     .filter(
       (filePath) =>
-        !/\/index\.astro$/.test(filePath) ||
-        filePath === "/src/pages/index.astro"
+        filePath !== "/src/pages/map.astro" &&
+        (!/\/index\.astro$/.test(filePath) ||
+          filePath === "/src/pages/index.astro")
     )
     .map((filePath) => {
       const module = modules[filePath] as PageModule;
@@ -39,15 +43,12 @@ let links = [
             .replace(/-/g, " ")
             .replace(/\b\w/g, (c) => c.toUpperCase()) ?? "");
 
-      const pageTitle = module.title || fallbackTitle;
-      const pageDescription = module.description;
-      const pageIcon = module.icon;
-
       return {
         href,
-        title: pageTitle,
-        description: pageDescription,
-        icon: pageIcon,
+        title: isRoot ? "Home" : (module.title || fallbackTitle),
+        description: isRoot ? undefined : module.description,
+        icon: module.icon,
+        category: module.category ?? "Other",
         isRoot,
       };
     }),
@@ -56,17 +57,21 @@ let links = [
     title: "PartyGif",
     description: "Create party gifs client-side",
     icon: "🎉",
+    category: "Tools",
     isRoot: false,
   },
-].toSorted((a, b) => {
-  if (a.isRoot) return -1;
-  if (b.isRoot) return 1;
-  return a.title.localeCompare(b.title);
-});
+];
+
+const grouped = CATEGORY_ORDER.map((cat) => ({
+  category: cat,
+  links: allLinks
+    .filter((l) => !l.isRoot && l.category === cat)
+    .toSorted((a, b) => a.title.localeCompare(b.title)),
+}));
 ---
 
 <Layout title={title} description={description}>
-  <main class="min-h-screen px-6 py-8 text-white">
+  <main class="min-h-screen px-6 pt-1 pb-8 text-white">
     <!-- Background -->
     <div class="pointer-events-none fixed inset-0 -z-10 bg-[#070A12]">
       <div
@@ -83,54 +88,59 @@ let links = [
       </div>
     </div>
 
-    <header class="mx-auto mb-10 max-w-4xl text-center">
-      <h1 class="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">
+    <header class="mx-auto mb-10 max-w-2xl text-center">
+      <h1 class="relative mt-5 inline-block text-4xl font-semibold tracking-tight sm:text-5xl">
         Site Map
+        <a
+          href="/"
+          class="absolute top-full left-1/2 mt-2 flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-1.5 text-sm font-medium whitespace-nowrap
+                 transition-[background-color,border-color] duration-150
+                 hover:border-white/16 hover:bg-white/[0.09]
+                 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60"
+        >
+          <span aria-hidden="true">🏠</span>
+          Home
+        </a>
       </h1>
     </header>
 
-    <ul class="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="mx-auto max-w-2xl space-y-10">
       {
-        links.map(({ href, title, description, icon, isRoot }) => (
-          <li class="h-full">
-            <a
-              href={href}
-              class="group relative flex h-full flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border border-white/12 bg-white/[0.06] px-5 py-7 text-center
-                     shadow-[0_10px_30px_-18px_rgba(0,0,0,0.65)] backdrop-blur-xl
-                     transition-[transform,background-color,border-color,box-shadow,filter] duration-150 ease-out
-                     hover:border-white/18 hover:bg-white/[0.09]
-                     hover:shadow-[0_18px_40px_-22px_rgba(0,0,0,0.75)]
-                     active:translate-y-0 active:scale-[0.99]
-                     focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60"
-            >
-              <span class="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100">
-                <span class="absolute -left-24 -top-24 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
-                <span class="absolute -right-24 -bottom-24 h-64 w-64 rounded-full bg-sky-300/10 blur-2xl" />
-              </span>
-              <span class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-
-              {icon && (
-                <span
-                  class="text-4xl drop-shadow-[0_6px_18px_rgba(0,0,0,0.35)]
-                         transition-transform duration-150 ease-out
-                         group-hover:scale-[1.04] group-active:scale-[1.01]"
-                  aria-hidden="true"
-                >
-                  {icon}
-                </span>
-              )}
-
-              <span class="text-lg font-semibold tracking-tight">
-                {isRoot ? "Home" : title}
-              </span>
-
-              {description && !isRoot && (
-                <span class="mt-0.5 text-sm text-white/65">{description}</span>
-              )}
-            </a>
-          </li>
+        grouped.map(({ category, links }) => (
+          <section>
+            <h2 class="mb-3 text-xs font-semibold uppercase tracking-widest text-white/40">
+              {category}
+            </h2>
+            <ul class="space-y-1.5">
+              {links.map(({ href, title, description, icon }) => (
+                <li>
+                  <a
+                    href={href}
+                    class="group flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5
+                           transition-[background-color,border-color] duration-150
+                           hover:border-white/16 hover:bg-white/[0.09]
+                           focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60"
+                  >
+                    {icon && (
+                      <span class="shrink-0 text-xl leading-none" aria-hidden="true">
+                        {icon}
+                      </span>
+                    )}
+                    <span class="min-w-0">
+                      <span class="block text-sm font-semibold leading-snug">{title}</span>
+                      {description && (
+                        <span class="mt-1 block truncate text-xs text-white/50 leading-snug" title={description}>
+                          {description}
+                        </span>
+                      )}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
         ))
       }
-    </ul>
+    </div>
   </main>
 </Layout>
