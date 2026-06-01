@@ -1,0 +1,13 @@
+---
+export const title = "Video";
+export const description = "Load a video stored locally and add timestamp notes with URL-synced state.";
+export const icon = "🎬";
+export const category = "Tools";
+
+import Layout from "../layouts/Layout.astro";
+import { VideoReviewer } from "../components/VideoReviewer/VideoReviewer.tsx";
+---
+
+<Layout title={title} description={description}>
+  <VideoReviewer client:only="react" />
+</Layout>
