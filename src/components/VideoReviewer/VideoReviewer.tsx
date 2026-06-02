@@ -174,23 +174,25 @@ export function VideoReviewer() {
 
       {blobUrl && (
         <div className="flex flex-col lg:flex-row gap-4 flex-1 lg:overflow-hidden">
-          <div className="flex flex-col gap-3 flex-1 min-w-0">
+          <div className="flex flex-col gap-3 flex-1 min-w-0 lg:overflow-hidden">
             {mismatchWarning && (
-              <div className="text-xs px-3 py-2 rounded bg-yellow-900/40 border border-yellow-700 text-yellow-300">
+              <div className="text-xs px-3 py-2 rounded bg-yellow-900/40 border border-yellow-700 text-yellow-300 shrink-0">
                 This file doesn't match the original ({fileName}). Notes may be
                 out of sync.
               </div>
             )}
 
-            <video
-              ref={videoRef}
-              src={blobUrl}
-              controls
-              className="w-full rounded-lg bg-black"
-              onTimeUpdate={handleTimeUpdate}
-            />
+            <div className="lg:flex-1 lg:min-h-0">
+              <video
+                ref={videoRef}
+                src={blobUrl}
+                controls
+                className="w-full lg:h-full lg:object-contain rounded-lg bg-black"
+                onTimeUpdate={handleTimeUpdate}
+              />
+            </div>
 
-            <div className="flex items-center gap-2 text-xs text-neutral-500">
+            <div className="flex items-center gap-2 text-xs text-neutral-500 shrink-0">
               <span className="font-mono">{fileName}</span>
               <span>·</span>
               <span className="font-mono">{formatTime(currentTime)}</span>
@@ -205,7 +207,7 @@ export function VideoReviewer() {
               </label>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 shrink-0">
               <input
                 ref={noteInputRef}
                 type="text"
