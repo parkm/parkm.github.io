@@ -76,6 +76,8 @@ export interface CountersStore {
 
   /** Remove a single history entry. Does not change the counter's value. */
   deleteHistoryEntry: (id: string) => Promise<void>;
+  /** Add or update the note on a history entry. Pass empty string to clear. */
+  updateHistoryNote: (id: string, note: string) => Promise<void>;
 
   // Stacks
   createStack: (name: string, counterIds: string[]) => Promise<Stack>;
@@ -105,8 +107,10 @@ export function useCountersStore(): CountersStore {
   // Refs mirror state so async callbacks read fresh values.
   const countersRef = useRef(counters);
   const stacksRef = useRef(stacks);
+  const historyRef = useRef(history);
   countersRef.current = counters;
   stacksRef.current = stacks;
+  historyRef.current = history;
 
   // Tracks the in-progress run of coalesced step presses so we can keep folding
   // rapid taps into the same history entry. Reset by any non-step change.
@@ -466,6 +470,17 @@ export function useCountersStore(): CountersStore {
     setHistory((prev) => prev.filter((h) => h.id !== id));
   }, []);
 
+  const updateHistoryNote = useCallback(async (id: string, note: string) => {
+    const entry = historyRef.current.find((h) => h.id === id);
+    if (!entry) return;
+    const updated: HistoryEntry = {
+      ...entry,
+      note: note.trim() || undefined,
+    };
+    await db.put("history", updated);
+    setHistory((prev) => prev.map((h) => (h.id === id ? updated : h)));
+  }, []);
+
   // ---- Stacks ------------------------------------------------------------
   const createStack = useCallback(
     async (name: string, counterIds: string[]) => {
@@ -586,6 +601,7 @@ export function useCountersStore(): CountersStore {
     setValue,
     resetCounter,
     deleteHistoryEntry,
+    updateHistoryNote,
     createStack,
     updateStack,
     deleteStack,

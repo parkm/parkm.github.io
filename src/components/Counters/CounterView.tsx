@@ -101,6 +101,7 @@ export function CounterView({
           entries={visible}
           emptyHint="Changes will appear here."
           onDelete={store.deleteHistoryEntry}
+          onUpdateNote={store.updateHistoryNote}
         />
         {history.length > RECENT_COUNT && (
           <Button

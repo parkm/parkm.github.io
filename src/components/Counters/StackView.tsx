@@ -129,6 +129,7 @@ export function StackView({
           counterNames={names}
           emptyHint="Changes across these counters will appear here."
           onDelete={store.deleteHistoryEntry}
+          onUpdateNote={store.updateHistoryNote}
         />
         {history.length > RECENT_COUNT && (
           <Button

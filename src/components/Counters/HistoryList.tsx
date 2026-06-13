@@ -5,6 +5,7 @@
  * ISO timestamp.
  */
 
+import { useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -14,6 +15,7 @@ import {
   Bot,
   User,
   Trash2,
+  MessageSquarePlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDateTime, formatNumber, formatRelative } from "./helpers";
@@ -43,6 +45,7 @@ export function HistoryList({
   counterNames,
   emptyHint,
   onDelete,
+  onUpdateNote,
 }: {
   entries: HistoryEntry[];
   /** When viewing a stack, map counterId → name to label each row. */
@@ -50,7 +53,11 @@ export function HistoryList({
   emptyHint?: string;
   /** When provided, each row gets a delete button. */
   onDelete?: (id: string) => void;
+  /** When provided, notes can be added or edited on each entry. */
+  onUpdateNote?: (id: string, note: string) => void;
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
   const sorted = [...entries].sort((a, b) => b.at.localeCompare(a.at));
 
   if (sorted.length === 0) {
@@ -110,6 +117,52 @@ export function HistoryList({
               >
                 {formatRelative(entry.at)}
               </time>
+              {onUpdateNote && editingId === entry.id ? (
+                <input
+                  autoFocus
+                  type="text"
+                  value={draft}
+                  placeholder="Add a note…"
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      onUpdateNote(entry.id, draft);
+                      setEditingId(null);
+                    }
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                  onBlur={() => {
+                    onUpdateNote(entry.id, draft);
+                    setEditingId(null);
+                  }}
+                  className="border-input focus-visible:border-ring focus-visible:ring-ring/50 mt-1 h-7 w-full rounded-md border bg-transparent px-2 text-xs outline-none focus-visible:ring-[3px]"
+                />
+              ) : onUpdateNote && entry.note ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft(entry.note ?? "");
+                    setEditingId(entry.id);
+                  }}
+                  className="text-muted-foreground hover:text-foreground mt-0.5 block max-w-full truncate text-left text-xs transition-colors"
+                  title="Click to edit note"
+                >
+                  {entry.note}
+                </button>
+              ) : onUpdateNote ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft("");
+                    setEditingId(entry.id);
+                  }}
+                  className="text-muted-foreground/40 hover:text-muted-foreground mt-0.5 flex items-center gap-1 text-xs transition-colors"
+                  aria-label="Add note"
+                >
+                  <MessageSquarePlus className="size-3" />
+                  Add note
+                </button>
+              ) : null}
             </div>
 
             <div className="flex flex-col items-end gap-1">
