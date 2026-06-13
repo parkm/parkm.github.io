@@ -1,0 +1,13 @@
+---
+export const title = "Counter";
+export const description = "Counter app using IndexedDB for storage";
+export const icon = "🔢";
+export const category = "Tools";
+
+import Layout from "../layouts/Layout.astro";
+import { Counters as CountersComponent } from "../components/Counters/Counters.tsx";
+---
+
+<Layout title={title} description={description}>
+  <CountersComponent client:only="react" />
+</Layout>
