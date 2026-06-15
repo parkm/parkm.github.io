@@ -44,7 +44,11 @@ export function StackView({
     () => store.history.filter((h) => idSet.has(h.counterId)),
     [store.history, idSet],
   );
-  const visible = showAllHistory ? history : history.slice(-RECENT_COUNT);
+  const sorted = useMemo(
+    () => [...history].sort((a, b) => a.at.localeCompare(b.at)),
+    [history],
+  );
+  const visible = showAllHistory ? history : sorted.slice(-RECENT_COUNT);
   const names = useMemo(
     () => new Map(members.map((c) => [c.id, c.name])),
     [members],

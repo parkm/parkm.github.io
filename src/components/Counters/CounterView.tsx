@@ -31,7 +31,11 @@ export function CounterView({
     () => store.history.filter((h) => h.counterId === counter.id),
     [store.history, counter.id],
   );
-  const visible = showAllHistory ? history : history.slice(-RECENT_COUNT);
+  const sorted = useMemo(
+    () => [...history].sort((a, b) => a.at.localeCompare(b.at)),
+    [history],
+  );
+  const visible = showAllHistory ? history : sorted.slice(-RECENT_COUNT);
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-6">
