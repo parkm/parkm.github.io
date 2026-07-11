@@ -13,9 +13,33 @@ import Layout from "../layouts/Layout.astro";
   </script>
 
   <canvas id="pixiCanvas" class="fixed inset-0 w-screen h-screen block"></canvas>
+  <canvas id="gemCanvas" class="fixed inset-0 w-screen h-screen block pointer-events-none z-[5]"></canvas>
 
   <div class="fixed top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none z-10">
     <div id="colorValue" class="text-3xl font-bold mb-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] text-white transition-all duration-300">#6B9FFF</div>
+  </div>
+
+  <button
+    id="gameToggle"
+    class="fixed top-6 right-4 z-20 px-4 py-2 rounded-full bg-black/40 backdrop-blur text-white text-sm font-semibold border border-white/20 active:scale-95 transition"
+  >
+    🎮 Play
+  </button>
+
+  <div
+    id="gameHud"
+    class="fixed top-20 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 pointer-events-none hidden"
+  >
+    <div id="phaseLabel" class="text-white/90 text-xs font-semibold uppercase tracking-widest drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"></div>
+    <div id="gemScore" class="text-white text-xl font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">💎 0</div>
+    <div class="flex items-center gap-2">
+      <span class="text-white/80 text-xs uppercase tracking-wider drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">Match</span>
+      <div id="targetSwatch" class="w-8 h-8 rounded-full border-2 border-white/70"></div>
+    </div>
+    <div class="w-48 h-2 rounded-full bg-black/40 overflow-hidden border border-white/20">
+      <div id="matchBar" class="h-full w-0 transition-[width] duration-100"></div>
+    </div>
+    <div id="gameStatus" class="text-white text-sm font-medium drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] h-5"></div>
   </div>
 
   <script>
@@ -427,6 +451,11 @@ import Layout from "../layouts/Layout.astro";
 
       updateColorDisplay(baseHue, 75, 52);
 
+      if (gameActive) {
+        drawGems();
+        updateGameHud();
+      }
+
       requestAnimationFrame(animate);
     }
 
@@ -446,6 +475,11 @@ import Layout from "../layouts/Layout.astro";
         clientY = e.clientY;
       } else {
         return;
+      }
+
+      if (gameActive) {
+        const singleFinger = !(e instanceof TouchEvent) || e.touches.length <= 1;
+        if (singleFinger) tryCollectAt(clientX, clientY);
       }
 
       addRipple(clientX, clientY);
@@ -520,6 +554,9 @@ import Layout from "../layouts/Layout.astro";
           isColorControlMode = false;
         }
 
+        // Swipe to collect gems when the color is in range
+        if (gameActive) tryCollectAt(clientX, clientY);
+
         const dist = Math.sqrt(
           Math.pow(clientX - lastMouseX, 2) + Math.pow(clientY - lastMouseY, 2)
         );
@@ -555,15 +592,477 @@ import Layout from "../layouts/Layout.astro";
       canvas.height = window.innerHeight * window.devicePixelRatio;
       canvas.style.width = `${window.innerWidth}px`;
       canvas.style.height = `${window.innerHeight}px`;
+      sizeGemCanvas();
+    }
+
+    // Trackpad two-finger scroll (and mouse wheel) steers the hue —
+    // the desktop equivalent of the two-finger touch drag.
+    function handleWheel(e: WheelEvent): void {
+      e.preventDefault();
+      const delta =
+        Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      baseHue = (baseHue - delta * 0.3) % 360;
+      if (baseHue < 0) baseHue += 360;
+
+      const now = Date.now();
+      if (now - mouseMoveThrottle > 40) {
+        addRipple(e.clientX, e.clientY);
+        mouseMoveThrottle = now;
+      }
     }
 
     window.addEventListener("mousemove", handleMoveThrottled);
     window.addEventListener("click", handleMove);
+    window.addEventListener("wheel", handleWheel, { passive: false });
     window.addEventListener("touchmove", handleMoveThrottled, { passive: true });
     window.addEventListener("touchstart", handleMove, { passive: true });
     window.addEventListener("touchend", handleTouchEnd, { passive: true });
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("resize", handleResize);
+
+    // ---------- Gem matching game ----------
+    const gemCanvas = document.getElementById("gemCanvas") as HTMLCanvasElement;
+    const gemCtx = gemCanvas.getContext("2d") as CanvasRenderingContext2D;
+    const gameToggle = document.getElementById("gameToggle") as HTMLButtonElement;
+    const gameHud = document.getElementById("gameHud") as HTMLDivElement;
+    const phaseLabel = document.getElementById("phaseLabel") as HTMLDivElement;
+    const gemScoreEl = document.getElementById("gemScore") as HTMLDivElement;
+    const targetSwatch = document.getElementById("targetSwatch") as HTMLDivElement;
+    const matchBar = document.getElementById("matchBar") as HTMLDivElement;
+    const gameStatus = document.getElementById("gameStatus") as HTMLDivElement;
+
+    const MATCH_TOLERANCE = 40; // degrees — generous so matching is forgiving
+
+    // Tutorial: single-color guided rounds that show you where to swipe.
+    const TUTORIAL_ROUNDS = 3; // number of guided rounds before the real game
+    const TUTORIAL_GEMS = 6;
+
+    // Real game: lots of mixed-color gems on screen at once.
+    const GAME_COLORS = 6; // distinct hues mixed together
+    const GAME_GEM_COUNT = 70; // starting gem count — grows each wave
+    const GAME_GEM_MAX = 150;
+
+    interface Gem {
+      x: number;
+      y: number;
+      hue: number;
+      size: number;
+      phase: number;
+      collected: boolean;
+      collectedAt: number;
+    }
+
+    let gameActive = false;
+    let gamePhase: "tutorial" | "game" = "tutorial";
+    let roundsDone = 0; // completed tutorial rounds
+    let waveNumber = 0;
+    let targetHue = 0; // the current tutorial round's color
+    let score = 0;
+    let gems: Gem[] = [];
+    let roundClearing = false;
+
+    function hueDiff(a: number, b: number): number {
+      const d = Math.abs(a - b) % 360;
+      return d > 180 ? 360 - d : d;
+    }
+
+    // Signed shortest distance from `from` to `to` around the hue wheel.
+    // Positive => target is "clockwise" (drag right to reach it).
+    function signedHueDelta(from: number, to: number): number {
+      return ((to - from + 540) % 360) - 180;
+    }
+
+    function hslCss(h: number, s: number, l: number): string {
+      return `hsl(${h} ${s}% ${l}%)`;
+    }
+
+    function hslCssA(h: number, s: number, l: number, a: number): string {
+      return `hsla(${h}, ${s}%, ${l}%, ${a})`;
+    }
+
+    function sizeGemCanvas(): void {
+      const dpr = window.devicePixelRatio || 1;
+      gemCanvas.width = window.innerWidth * dpr;
+      gemCanvas.height = window.innerHeight * dpr;
+      gemCanvas.style.width = `${window.innerWidth}px`;
+      gemCanvas.style.height = `${window.innerHeight}px`;
+    }
+
+    function spawnGem(hue: number, minSize: number, maxSize: number): Gem {
+      const margin = 55;
+      const topSafe = 210;
+      const x = margin + Math.random() * (window.innerWidth - margin * 2);
+      const y = topSafe + Math.random() * (window.innerHeight - topSafe - 70);
+      return {
+        x,
+        y,
+        hue,
+        size: minSize + Math.random() * (maxSize - minSize),
+        phase: Math.random() * 10,
+        collected: false,
+        collectedAt: 0,
+      };
+    }
+
+    // Tutorial round: one color, a handful of gems, direction hint guides you.
+    function startTutorialRound(): void {
+      gamePhase = "tutorial";
+      let h = 0;
+      do {
+        h = Math.floor(Math.random() * 360);
+      } while (hueDiff(h, baseHue) < 70);
+      targetHue = h;
+      gems = [];
+      for (let i = 0; i < TUTORIAL_GEMS; i++) gems.push(spawnGem(h, 30, 40));
+    }
+
+    // Real game wave: a LOT of gems across several distinct colors.
+    function startGameWave(): void {
+      gamePhase = "game";
+      waveNumber++;
+      gems = [];
+      const count = Math.min(GAME_GEM_COUNT + (waveNumber - 1) * 20, GAME_GEM_MAX);
+      const offset = Math.random() * 360;
+      const hues: number[] = [];
+      for (let i = 0; i < GAME_COLORS; i++) {
+        hues.push((offset + (360 / GAME_COLORS) * i) % 360);
+      }
+      for (let i = 0; i < count; i++) {
+        const h = hues[Math.floor(Math.random() * hues.length)];
+        gems.push(spawnGem(h, 16, 26));
+      }
+    }
+
+    function advanceRound(): void {
+      if (gamePhase === "tutorial") {
+        roundsDone++;
+        if (roundsDone < TUTORIAL_ROUNDS) startTutorialRound();
+        else startGameWave();
+      } else {
+        startGameWave();
+      }
+    }
+
+    function startGame(): void {
+      score = 0;
+      roundsDone = 0;
+      waveNumber = 0;
+      gemScoreEl.textContent = "💎 0";
+      if (TUTORIAL_ROUNDS > 0) startTutorialRound();
+      else startGameWave();
+    }
+
+    // Which hue the guidance should point at: the tutorial color, or in the
+    // real game the uncollected color closest to your current hue.
+    function activeTargetHue(): number | null {
+      if (gamePhase === "tutorial") return targetHue;
+      let best: number | null = null;
+      let bestD = Infinity;
+      for (const g of gems) {
+        if (g.collected) continue;
+        const d = hueDiff(baseHue, g.hue);
+        if (d < bestD) {
+          bestD = d;
+          best = g.hue;
+        }
+      }
+      return best;
+    }
+
+    function tryCollectAt(px: number, py: number): void {
+      if (!gameActive || roundClearing) return;
+
+      let best = -1;
+      let bestDist = Infinity;
+      for (let i = 0; i < gems.length; i++) {
+        const g = gems[i];
+        if (g.collected) continue;
+        if (hueDiff(baseHue, g.hue) > MATCH_TOLERANCE) continue; // only matched colors collect
+        const d = Math.hypot(px - g.x, py - g.y);
+        if (d < g.size * 2.1 && d < bestDist) {
+          best = i;
+          bestDist = d;
+        }
+      }
+
+      if (best >= 0) {
+        gems[best].collected = true;
+        gems[best].collectedAt = animationTime;
+        score++;
+        gemScoreEl.textContent = `💎 ${score}`;
+        addRipple(gems[best].x, gems[best].y);
+
+        if (gems.every((g) => g.collected)) {
+          roundClearing = true;
+          gameStatus.textContent = "✨ Cleared!";
+          setTimeout(() => {
+            advanceRound();
+            roundClearing = false;
+          }, 350);
+        }
+      }
+    }
+
+    // Twinkling 4-point star glint.
+    function sparkle(
+      ctx: CanvasRenderingContext2D,
+      x: number,
+      y: number,
+      r: number,
+      alpha: number
+    ): void {
+      if (alpha <= 0 || r <= 0) return;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.beginPath();
+      const inner = r * 0.3;
+      for (let i = 0; i < 8; i++) {
+        const ang = (i * Math.PI) / 4 - Math.PI / 2;
+        const rad = i % 2 === 0 ? r : inner;
+        const px = Math.cos(ang) * rad;
+        const py = Math.sin(ang) * rad;
+        if (i) ctx.lineTo(px, py);
+        else ctx.moveTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawGem(
+      ctx: CanvasRenderingContext2D,
+      cx: number,
+      cy: number,
+      s: number,
+      hue: number,
+      matched: boolean,
+      t: number,
+      collectProgress: number
+    ): void {
+      const pts: [number, number][] = [
+        [0, -s],
+        [s * 0.72, -s * 0.32],
+        [s * 0.5, s * 0.35],
+        [0, s],
+        [-s * 0.5, s * 0.35],
+        [-s * 0.72, -s * 0.32],
+      ];
+      const tracePath = () => {
+        ctx.beginPath();
+        pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
+        ctx.closePath();
+      };
+
+      ctx.save();
+      // matched gems gently bob and breathe; dormant ones sit still
+      ctx.translate(cx, cy + (matched ? Math.sin(t * 2) * 3 : 0));
+      const pulse = matched ? 1 + Math.sin(t * 4) * 0.07 : 1;
+      const scale = pulse * (1 + collectProgress * 0.9);
+      ctx.scale(scale, scale);
+      ctx.globalAlpha = 1 - collectProgress;
+
+      // radiant aura behind a collectable gem
+      if (matched) {
+        const glow = ctx.createRadialGradient(0, 0, s * 0.2, 0, 0, s * 2.4);
+        glow.addColorStop(0, hslCssA(hue, 95, 62, 0.55));
+        glow.addColorStop(0.5, hslCssA(hue, 90, 58, 0.22));
+        glow.addColorStop(1, hslCssA(hue, 90, 58, 0));
+        ctx.fillStyle = glow;
+        ctx.fillRect(-s * 2.4, -s * 2.4, s * 4.8, s * 4.8);
+      }
+
+      // body
+      if (matched) {
+        ctx.shadowColor = hslCss(hue, 95, 62);
+        ctx.shadowBlur = 26 + Math.sin(t * 4) * 10;
+      }
+      tracePath();
+      ctx.fillStyle = matched ? hslCss(hue, 85, 52) : hslCss(hue, 26, 34);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // facets radiating from an off-center culet
+      const center: [number, number] = [0, -s * 0.05];
+      const shades = [70, 52, 40, 48, 34, 60];
+      for (let i = 0; i < pts.length; i++) {
+        const a = pts[i];
+        const b = pts[(i + 1) % pts.length];
+        ctx.beginPath();
+        ctx.moveTo(center[0], center[1]);
+        ctx.lineTo(a[0], a[1]);
+        ctx.lineTo(b[0], b[1]);
+        ctx.closePath();
+        // matched facets shimmer as light travels around the cut
+        const shimmer = matched ? Math.sin(t * 3 + i * 1.1) * 9 : 0;
+        const light = shades[i] + shimmer;
+        ctx.fillStyle = matched
+          ? hslCss(hue, 88, Math.max(20, Math.min(85, light)))
+          : hslCss(hue, 30, Math.max(16, light - 16));
+        ctx.fill();
+      }
+
+      // bright top table facet
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.72, -s * 0.32);
+      ctx.lineTo(0, -s);
+      ctx.lineTo(s * 0.72, -s * 0.32);
+      ctx.lineTo(center[0], center[1]);
+      ctx.closePath();
+      ctx.fillStyle = matched ? hslCss(hue, 92, 78) : hslCss(hue, 32, 50);
+      ctx.fill();
+
+      // travelling specular glint, clipped to the gem
+      if (matched) {
+        ctx.save();
+        tracePath();
+        ctx.clip();
+        const sweep = (t * 0.5) % 1.6; // slides across, then flashes off-gem
+        const gx = -s * 1.3 + sweep * s * 1.6;
+        const g = ctx.createLinearGradient(gx - s * 0.5, -s, gx + s * 0.5, s);
+        g.addColorStop(0, "rgba(255,255,255,0)");
+        g.addColorStop(0.5, "rgba(255,255,255,0.6)");
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(-s * 1.3, -s * 1.3, s * 2.6, s * 2.6);
+        ctx.restore();
+      }
+
+      // rim
+      tracePath();
+      ctx.strokeStyle = matched
+        ? `rgba(255,255,255,${0.55 + Math.sin(t * 4) * 0.2})`
+        : "rgba(255,255,255,0.18)";
+      ctx.lineWidth = matched ? 2 : 1.5;
+      ctx.stroke();
+
+      // sparkles — twinkling star glints only when collectable
+      if (matched) {
+        const tw = 0.6 + 0.4 * Math.sin(t * 5);
+        sparkle(ctx, -s * 0.24, -s * 0.5, s * 0.34 * tw, 0.95);
+        sparkle(ctx, s * 0.32, -s * 0.1, s * 0.18 * (0.6 + 0.4 * Math.sin(t * 5 + 2)), 0.8);
+        sparkle(ctx, s * 0.05, s * 0.4, s * 0.14 * (0.6 + 0.4 * Math.sin(t * 6 + 1)), 0.7);
+      } else {
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        ctx.beginPath();
+        ctx.arc(-s * 0.22, -s * 0.48, s * 0.07, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    // Glowing edge + chevrons in the target color, pointing the way to drag.
+    function drawDirectionHint(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+      const tgt = activeTargetHue();
+      if (tgt === null) return;
+      const signed = signedHueDelta(baseHue, tgt);
+      const diff = Math.abs(signed);
+      if (diff <= MATCH_TOLERANCE) return; // already in range — no nudge needed
+
+      const dir = signed > 0 ? 1 : -1; // +1 => drag right, -1 => drag left
+      const intensity = Math.min(1, (diff - MATCH_TOLERANCE) / 140);
+      const bandW = w * 0.3;
+
+      const grad =
+        dir > 0
+          ? ctx.createLinearGradient(w - bandW, 0, w, 0)
+          : ctx.createLinearGradient(bandW, 0, 0, 0);
+      grad.addColorStop(0, hslCssA(tgt, 85, 55, 0));
+      grad.addColorStop(1, hslCssA(tgt, 85, 55, 0.18 + intensity * 0.32));
+      ctx.fillStyle = grad;
+      ctx.fillRect(dir > 0 ? w - bandW : 0, 0, bandW, h);
+
+      // Animated chevrons flowing toward the target color.
+      const cy = h / 2;
+      const edgeX = dir > 0 ? w - 44 : 44;
+      const size = 26;
+      for (let i = 0; i < 3; i++) {
+        const t = (animationTime * 0.8 + i * 0.34) % 1;
+        const x = edgeX + dir * (t * 44 - 22);
+        const a = (0.35 + intensity * 0.5) * (1 - Math.abs(t - 0.5) * 1.4);
+        if (a <= 0) continue;
+        ctx.strokeStyle = hslCssA(tgt, 92, 66, a);
+        ctx.lineWidth = 5;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        ctx.moveTo(x - dir * size * 0.5, cy - size * 0.6);
+        ctx.lineTo(x + dir * size * 0.5, cy);
+        ctx.lineTo(x - dir * size * 0.5, cy + size * 0.6);
+        ctx.stroke();
+      }
+    }
+
+    function drawGems(): void {
+      const dpr = window.devicePixelRatio || 1;
+      gemCtx.setTransform(1, 0, 0, 1, 0, 0);
+      gemCtx.clearRect(0, 0, gemCanvas.width, gemCanvas.height);
+      gemCtx.scale(dpr, dpr);
+
+      drawDirectionHint(gemCtx, window.innerWidth, window.innerHeight);
+
+      for (const g of gems) {
+        const matched = hueDiff(baseHue, g.hue) <= MATCH_TOLERANCE;
+        let cp = 0;
+        if (g.collected) cp = Math.min(1, (animationTime - g.collectedAt) / 0.45);
+        drawGem(gemCtx, g.x, g.y, g.size, g.hue, matched && !g.collected, animationTime + g.phase, cp);
+      }
+
+      gems = gems.filter((g) => !(g.collected && animationTime - g.collectedAt > 0.5));
+    }
+
+    function updateGameHud(): void {
+      if (gamePhase === "tutorial") {
+        phaseLabel.textContent = `Tutorial ${Math.min(roundsDone + 1, TUTORIAL_ROUNDS)}/${TUTORIAL_ROUNDS}`;
+      } else {
+        const left = gems.filter((g) => !g.collected).length;
+        phaseLabel.textContent = `Wave ${waveNumber} · ${left} left`;
+      }
+
+      const tgt = activeTargetHue();
+      if (tgt === null) {
+        matchBar.style.width = "0%";
+        if (!roundClearing) gameStatus.textContent = "";
+        return;
+      }
+
+      targetSwatch.style.backgroundColor = hslCss(tgt, 80, 55);
+      targetSwatch.style.boxShadow = `0 0 16px ${hslCss(tgt, 90, 60)}`;
+
+      const signed = signedHueDelta(baseHue, tgt);
+      const diff = Math.abs(signed);
+      const matched = diff <= MATCH_TOLERANCE;
+      const proximity = Math.max(0, Math.min(1, 1 - diff / 120));
+      matchBar.style.width = `${proximity * 100}%`;
+      matchBar.style.backgroundColor = matched ? hslCss(tgt, 85, 55) : "rgba(255,255,255,0.5)";
+
+      if (!roundClearing) {
+        if (matched) {
+          gameStatus.textContent =
+            gamePhase === "tutorial" ? "Matched! Swipe to collect 💎" : "Swipe the glowing gems! 💎";
+        } else {
+          gameStatus.textContent = signed > 0 ? "Two-finger drag  →" : "←  Two-finger drag";
+        }
+      }
+    }
+
+    gameToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      gameActive = !gameActive;
+      if (gameActive) {
+        gameToggle.textContent = "✕ Stop";
+        gameHud.classList.remove("hidden");
+        sizeGemCanvas();
+        startGame();
+      } else {
+        gameToggle.textContent = "🎮 Play";
+        gameHud.classList.add("hidden");
+        gems = [];
+        gemCtx.setTransform(1, 0, 0, 1, 0, 0);
+        gemCtx.clearRect(0, 0, gemCanvas.width, gemCanvas.height);
+      }
+    });
 
     initWebGL();
   </script>
