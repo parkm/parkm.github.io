@@ -1,0 +1,17 @@
+---
+export const title = "Flashcards";
+export const description = "Sheet music flashcards — name the notes on a grand staff";
+export const icon = "🎼";
+export const category = "Tools";
+
+import Layout from "../layouts/Layout.astro";
+import DarkModeToggle from "../components/DarkModeToggle.astro";
+import { Flashcards as FlashcardsApp } from "../components/Flashcards/Flashcards.tsx";
+---
+
+<Layout title={title} description={description}>
+  <FlashcardsApp client:only="react" />
+  <div class="fixed bottom-5 right-5">
+    <DarkModeToggle />
+  </div>
+</Layout>
