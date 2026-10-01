@@ -13,19 +13,30 @@ function zoomToT(z: number, minZoom: number, maxZoom: number): number {
   return Math.log(zz / minZoom) / Math.log(maxZoom / minZoom);
 }
 
+// Zoom as shown in the readout, which has to cope with depths far past what a
+// number can hold.
+function formatZoom(logZoom: number): string {
+  const log10 = logZoom / Math.LN10;
+  if (log10 < 6) return `${Math.exp(logZoom).toFixed(1)}×`;
+  const exponent = Math.floor(log10);
+  return `${Math.pow(10, log10 - exponent).toFixed(1)}e+${exponent}×`;
+}
+
 type ZoomSliderProps = {
-  zoom: number;
+  // Natural log of the zoom; the slider itself only covers minZoom–maxZoom.
+  logZoom: number;
   minZoom: number;
   maxZoom: number;
   onZoomChange: (zoom: number) => void;
 };
 
 export function ZoomSlider({
-  zoom,
+  logZoom,
   minZoom,
   maxZoom,
   onZoomChange,
 }: ZoomSliderProps) {
+  const zoom = Math.exp(Math.min(logZoom, Math.log(maxZoom)));
   const [visible, setVisible] = useState(true);
   const [rendered, setRendered] = useState(true);
   const hideTimerRef = useRef<number | null>(null);
@@ -55,7 +66,7 @@ export function ZoomSlider({
 
   useEffect(() => {
     show();
-  }, [zoom, show]);
+  }, [logZoom, show]);
 
   const trackRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);
@@ -172,7 +183,7 @@ export function ZoomSlider({
             aria-orientation="vertical"
             aria-valuemin={minZoom}
             aria-valuemax={maxZoom}
-            aria-valuenow={zoom}
+            aria-valuenow={clamp(zoom, minZoom, maxZoom)}
             tabIndex={0}
             onKeyDown={onKeyDown}
             onPointerDown={onPointerDown}
@@ -204,7 +215,7 @@ export function ZoomSlider({
           </div>
 
           <div className="text-[9px] font-mono text-white/45 pb-2 select-none">
-            {zoom.toFixed(1)}×
+            {formatZoom(logZoom)}
           </div>
         </div>
       </div>

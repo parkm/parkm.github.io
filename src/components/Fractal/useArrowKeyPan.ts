@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
-import { clamp } from "@/lib/utils";
-import type { Vec2 } from "./MandelbrotVisualization";
+import { VIEW_SPAN, type Vec2 } from "./view";
 
 const DEFAULT_CONFIG = {
   accel: 0.002,
@@ -9,66 +8,39 @@ const DEFAULT_CONFIG = {
   initialSpeed: 0.006,
   boostMultiplier: 5.5,
   zoomSpeed: 0.0005,
-  minZoom: 0.1,
-  maxZoom: 10_000_000,
 } as const;
 
 type UseArrowKeyPanOptions = {
-  center: Vec2;
-  setCenter: (v: Vec2) => void;
-  zoom: number;
-  setZoom: (z: number) => void;
-  config?: Partial<typeof DEFAULT_CONFIG>;
+  // Pans by a screen offset in view heights.
+  panBy: (delta: Vec2) => void;
+  zoomBy: (factor: number) => void;
+  config?: Partial<Record<keyof typeof DEFAULT_CONFIG, number>>;
 };
 
 export function useArrowKeyPan({
-  center,
-  setCenter,
-  zoom,
-  setZoom,
+  panBy,
+  zoomBy,
   config = {},
 }: UseArrowKeyPanOptions) {
-  const {
-    accel,
-    damping,
-    maxSpeed,
-    initialSpeed,
-    boostMultiplier,
-    zoomSpeed,
-    minZoom,
-    maxZoom,
-  } = {
-    ...DEFAULT_CONFIG,
-    ...config,
-  };
+  const { accel, damping, maxSpeed, initialSpeed, boostMultiplier, zoomSpeed } =
+    {
+      ...DEFAULT_CONFIG,
+      ...config,
+    };
 
+  // In plane units at zoom 1, so panning feels the same at any depth.
   const velocity = useRef<Vec2>({ x: 0, y: 0 });
   const keys = useRef<Record<string, boolean>>({});
-  const centerRef = useRef(center);
-  const zoomRef = useRef(zoom);
 
   useEffect(() => {
-    centerRef.current = center;
-  }, [center]);
-
-  useEffect(() => {
-    zoomRef.current = zoom;
-  }, [zoom]);
-
-  useEffect(() => {
-    const PAN_EPSILON = 1e-12;
+    const PAN_EPSILON = 1e-7;
     const onKeyDown = (e: KeyboardEvent) => {
       if (!keys.current[e.key]) {
         if (!e.altKey) {
-          const currentPanScale = Math.max(1 / zoomRef.current, PAN_EPSILON);
-          if (e.key === "ArrowUp")
-            velocity.current.y += initialSpeed * currentPanScale;
-          if (e.key === "ArrowDown")
-            velocity.current.y -= initialSpeed * currentPanScale;
-          if (e.key === "ArrowLeft")
-            velocity.current.x -= initialSpeed * currentPanScale;
-          if (e.key === "ArrowRight")
-            velocity.current.x += initialSpeed * currentPanScale;
+          if (e.key === "ArrowUp") velocity.current.y += initialSpeed;
+          if (e.key === "ArrowDown") velocity.current.y -= initialSpeed;
+          if (e.key === "ArrowLeft") velocity.current.x -= initialSpeed;
+          if (e.key === "ArrowRight") velocity.current.x += initialSpeed;
         }
       }
       keys.current[e.key] = true;
@@ -87,22 +59,13 @@ export function useArrowKeyPan({
       const v = velocity.current;
       const boost = keys.current["Shift"] ? boostMultiplier : 1;
 
-      const currentPanScale = Math.max(1 / zoomRef.current, PAN_EPSILON);
-      const a = accel * boost * currentPanScale;
-      const max = maxSpeed * boost * currentPanScale;
+      const a = accel * boost;
+      const max = maxSpeed * boost;
 
       if (keys.current["Alt"]) {
         const boostedZoomSpeed = zoomSpeed * boost;
-        if (keys.current["ArrowUp"]) {
-          setZoom(
-            clamp(zoomRef.current * (1 + boostedZoomSpeed), minZoom, maxZoom),
-          );
-        }
-        if (keys.current["ArrowDown"]) {
-          setZoom(
-            clamp(zoomRef.current * (1 - boostedZoomSpeed), minZoom, maxZoom),
-          );
-        }
+        if (keys.current["ArrowUp"]) zoomBy(1 + boostedZoomSpeed);
+        if (keys.current["ArrowDown"]) zoomBy(1 - boostedZoomSpeed);
       } else {
         if (keys.current["ArrowUp"]) v.y += a;
         if (keys.current["ArrowDown"]) v.y -= a;
@@ -121,10 +84,7 @@ export function useArrowKeyPan({
       v.y *= damping;
 
       if (Math.abs(v.x) > PAN_EPSILON || Math.abs(v.y) > PAN_EPSILON) {
-        setCenter({
-          x: centerRef.current.x + v.x,
-          y: centerRef.current.y + v.y,
-        });
+        panBy({ x: v.x / VIEW_SPAN, y: v.y / VIEW_SPAN });
       }
 
       rafId = requestAnimationFrame(loop);
@@ -138,15 +98,13 @@ export function useArrowKeyPan({
       window.removeEventListener("keyup", onKeyUp);
     };
   }, [
-    setCenter,
-    setZoom,
+    panBy,
+    zoomBy,
     accel,
     damping,
     maxSpeed,
     initialSpeed,
     boostMultiplier,
     zoomSpeed,
-    minZoom,
-    maxZoom,
   ]);
 }
