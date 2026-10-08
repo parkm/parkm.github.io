@@ -1,20 +1,36 @@
 ---
 export const title = "Site Map";
 export const description = "All pages on the site";
-export const icon = "🗺️";
+export const icon = MapIcon;
 
 import Layout from "src/layouts/Layout.astro";
+import {
+  Blocks,
+  ChevronLeft,
+  File,
+  Map as MapIcon,
+  PartyPopper,
+  Search,
+  type LucideIcon,
+} from "lucide-react";
 
 const modules = import.meta.glob("/src/pages/**/*.astro", { eager: true });
 
 type PageModule = {
   title?: string;
   description?: string;
-  icon?: string;
+  icon?: LucideIcon;
   category?: string;
 };
 
 const CATEGORY_ORDER = ["Tools", "Entertainment", "Other"];
+
+// One hue per category, used for its heading, icons and row hover.
+const CATEGORY_HUE: Record<string, number> = {
+  Tools: 250,
+  Entertainment: 35,
+  Other: 160,
+};
 
 const allLinks = [
   ...Object.keys(modules)
@@ -47,7 +63,7 @@ const allLinks = [
         href,
         title: isRoot ? "Home" : (module.title || fallbackTitle),
         description: isRoot ? undefined : module.description,
-        icon: module.icon,
+        icon: module.icon ?? File,
         category: module.category ?? "Other",
         isRoot,
       };
@@ -56,7 +72,7 @@ const allLinks = [
     href: "/partygif",
     title: "PartyGif",
     description: "Create party gifs client-side",
-    icon: "🎉",
+    icon: PartyPopper,
     category: "Tools",
     isRoot: false,
   },
@@ -64,7 +80,7 @@ const allLinks = [
     href: "/tetris/",
     title: "Tetris",
     description: "Tetris with tuned DAS/ARR handling and cheese mode",
-    icon: "🟦",
+    icon: Blocks,
     category: "Entertainment",
     isRoot: false,
   },
@@ -76,71 +92,78 @@ const grouped = CATEGORY_ORDER.map((cat) => ({
     .filter((l) => !l.isRoot && l.category === cat)
     .toSorted((a, b) => a.title.localeCompare(b.title)),
 }));
+
+const pageCount = grouped.reduce((n, g) => n + g.links.length, 0);
 ---
 
 <Layout title={title} description={description}>
-  <main class="min-h-screen px-6 pt-1 pb-8 text-white">
-    <!-- Background -->
-    <div class="pointer-events-none fixed inset-0 -z-10 bg-[#070A12]">
-      <div
-        class="absolute inset-0 bg-[radial-gradient(1200px_700px_at_20%_10%,rgba(120,119,198,0.28),transparent_55%),radial-gradient(900px_600px_at_80%_20%,rgba(56,189,248,0.20),transparent_60%),radial-gradient(900px_700px_at_50%_90%,rgba(34,211,238,0.14),transparent_60%)]"
+  <div class="wash" aria-hidden="true"></div>
+  <div class="mx-auto max-w-2xl px-4 pb-20 antialiased sm:px-6">
+    <header class="flex items-center gap-3 pt-8 pb-4 sm:pt-14">
+      <a
+        href="/"
+        class="snappy -ml-2 grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground focus:outline-none focus-visible:outline-2 focus-visible:outline-ring"
       >
-      </div>
-      <div
-        class="absolute inset-0 opacity-[0.10] [background-image:radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] [background-size:22px_22px]"
-      >
-      </div>
-      <div
-        class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/35"
-      >
-      </div>
-    </div>
-
-    <header class="mx-auto mb-10 max-w-2xl text-center">
-      <h1 class="relative mt-5 inline-block text-4xl font-semibold tracking-tight sm:text-5xl">
-        Site Map
-        <a
-          href="/"
-          class="absolute top-full left-1/2 mt-2 flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-1.5 text-sm font-medium whitespace-nowrap
-                 transition-[background-color,border-color] duration-150
-                 hover:border-white/16 hover:bg-white/[0.09]
-                 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60"
-        >
-          <span aria-hidden="true">🏠</span>
-          Home
-        </a>
-      </h1>
+        <ChevronLeft size={18} strokeWidth={1.75} aria-hidden="true" />
+        <span class="sr-only">Home</span>
+      </a>
+      <h1 class="text-xl font-semibold">Site map</h1>
     </header>
 
-    <div class="mx-auto max-w-2xl space-y-10">
+    <div class="sticky top-0 z-10 -mx-2 py-2">
+      <label
+        class="glass flex h-11 items-center gap-2.5 rounded-xl px-3.5 focus-within:outline-2 focus-within:outline-ring/60"
+      >
+        <Search
+          size={16}
+          strokeWidth={1.75}
+          className="shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <span class="sr-only">Search pages</span>
+        <input
+          id="map-filter"
+          type="search"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder={`Search ${pageCount} pages`}
+          class="min-w-0 flex-1 bg-transparent text-[15px] placeholder:text-muted-foreground focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+        />
+      </label>
+    </div>
+
+    <main>
       {
         grouped.map(({ category, links }) => (
-          <section>
-            <h2 class="mb-3 text-xs font-semibold uppercase tracking-widest text-white/40">
-              {category}
-            </h2>
-            <ul class="space-y-1.5">
-              {links.map(({ href, title, description, icon }) => (
-                <li>
+          <section
+            data-map-section
+            class="mt-8"
+            style={`--hue: ${CATEGORY_HUE[category]}`}
+          >
+            <h2 class="tint mb-1 text-sm font-semibold">{category}</h2>
+            <ul>
+              {links.map(({ href, title, description, icon: Icon }) => (
+                <li data-map-item>
                   <a
                     href={href}
-                    class="group flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5
-                           transition-[background-color,border-color] duration-150
-                           hover:border-white/16 hover:bg-white/[0.09]
-                           focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60"
+                    data-search={`${title} ${description ?? ""} ${href}`.toLowerCase()}
+                    class="row group -mx-2 flex h-11 items-center gap-3 rounded-lg px-2 focus:outline-none"
                   >
-                    {icon && (
-                      <span class="shrink-0 text-xl leading-none" aria-hidden="true">
-                        {icon}
+                    <span class="tint grid w-5 shrink-0 place-items-center">
+                      <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
+                    </span>
+                    <span class="flex min-w-0 flex-1 items-baseline gap-2.5">
+                      <span class="shrink-0 text-[15px] font-medium">
+                        {title}
                       </span>
-                    )}
-                    <span class="min-w-0">
-                      <span class="block text-sm font-semibold leading-snug">{title}</span>
                       {description && (
-                        <span class="mt-1 block truncate text-xs text-white/50 leading-snug" title={description}>
+                        <span class="truncate text-sm text-muted-foreground">
                           {description}
                         </span>
                       )}
+                    </span>
+                    <span class="hidden shrink-0 font-mono text-xs text-muted-foreground sm:block">
+                      {href}
                     </span>
                   </a>
                 </li>
@@ -149,6 +172,148 @@ const grouped = CATEGORY_ORDER.map((cat) => ({
           </section>
         ))
       }
-    </div>
-  </main>
+      <p id="map-empty" hidden class="mt-8 text-sm text-muted-foreground">
+        No pages match that.
+      </p>
+    </main>
+  </div>
 </Layout>
+
+<style>
+  /* Glass only on the search bar, which is the one thing that actually floats
+     over content as the list scrolls under it. */
+  .glass {
+    background: color-mix(in oklch, var(--background) 72%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.6);
+    backdrop-filter: blur(14px) saturate(1.6);
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 0.6),
+      0 0 0 1px color-mix(in oklch, var(--foreground) 10%, transparent);
+  }
+
+  :global(.dark) .glass {
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 0.07),
+      0 0 0 1px color-mix(in oklch, var(--foreground) 12%, transparent);
+  }
+
+  /* Soft wash of color from the top edge; the search bar picks it up as the
+     page scrolls. The falloff is eased over many stops so it has no visible edge. */
+  .wash {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: -10;
+    height: 45vh;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      oklch(0.965 0.014 250 / 1.000) 0%,
+      oklch(0.965 0.014 250 / 0.980) 8%,
+      oklch(0.965 0.014 250 / 0.926) 17%,
+      oklch(0.965 0.014 250 / 0.844) 25%,
+      oklch(0.965 0.014 250 / 0.741) 33%,
+      oklch(0.965 0.014 250 / 0.624) 42%,
+      oklch(0.965 0.014 250 / 0.500) 50%,
+      oklch(0.965 0.014 250 / 0.376) 58%,
+      oklch(0.965 0.014 250 / 0.259) 67%,
+      oklch(0.965 0.014 250 / 0.156) 75%,
+      oklch(0.965 0.014 250 / 0.074) 83%,
+      oklch(0.965 0.014 250 / 0.020) 92%,
+      oklch(0.965 0.014 250 / 0.000) 100%
+    );
+  }
+
+  :global(.dark) .wash {
+    background: linear-gradient(
+      to bottom,
+      oklch(0.2 0.02 260 / 1.000) 0%,
+      oklch(0.2 0.02 260 / 0.980) 8%,
+      oklch(0.2 0.02 260 / 0.926) 17%,
+      oklch(0.2 0.02 260 / 0.844) 25%,
+      oklch(0.2 0.02 260 / 0.741) 33%,
+      oklch(0.2 0.02 260 / 0.624) 42%,
+      oklch(0.2 0.02 260 / 0.500) 50%,
+      oklch(0.2 0.02 260 / 0.376) 58%,
+      oklch(0.2 0.02 260 / 0.259) 67%,
+      oklch(0.2 0.02 260 / 0.156) 75%,
+      oklch(0.2 0.02 260 / 0.074) 83%,
+      oklch(0.2 0.02 260 / 0.020) 92%,
+      oklch(0.2 0.02 260 / 0.000) 100%
+    );
+  }
+
+  .tint {
+    color: oklch(0.55 0.16 var(--hue));
+  }
+
+  :global(.dark) .tint {
+    color: oklch(0.76 0.13 var(--hue));
+  }
+
+  /* Hover states land instantly and only ease out, like native lists. */
+  .row,
+  .snappy {
+    transition:
+      background-color 120ms ease-out,
+      color 120ms ease-out;
+  }
+
+  .row:hover,
+  .snappy:hover {
+    transition-duration: 0s;
+  }
+
+  .row {
+    scroll-margin: 4.5rem 0 1rem;
+  }
+
+  .row:hover,
+  .row:focus-visible {
+    background: oklch(0.6 0.15 var(--hue) / 0.1);
+  }
+
+  :global(.dark) .row:hover,
+  :global(.dark) .row:focus-visible {
+    background: oklch(0.7 0.13 var(--hue) / 0.12);
+  }
+</style>
+
+<script>
+  const input = document.querySelector<HTMLInputElement>("#map-filter")!;
+  const empty = document.querySelector<HTMLElement>("#map-empty")!;
+  const sections = [
+    ...document.querySelectorAll<HTMLElement>("[data-map-section]"),
+  ];
+  const links = [...document.querySelectorAll<HTMLAnchorElement>(".row")];
+
+  const filter = () => {
+    const query = input.value.trim().toLowerCase();
+    for (const section of sections) {
+      let count = 0;
+      for (const link of section.querySelectorAll<HTMLAnchorElement>(".row")) {
+        const match = link.dataset.search!.includes(query);
+        link.parentElement!.hidden = !match;
+        if (match) count++;
+      }
+      section.hidden = count === 0;
+    }
+    empty.hidden = links.some((link) => !link.parentElement!.hidden);
+  };
+
+  input.addEventListener("input", filter);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      links.find((link) => !link.parentElement!.hidden)?.click();
+    } else if (e.key === "Escape") {
+      input.value = "";
+      filter();
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "/" && document.activeElement !== input) {
+      e.preventDefault();
+      input.focus();
+    }
+  });
+  if (matchMedia("(pointer: fine)").matches) input.focus();
+</script>
