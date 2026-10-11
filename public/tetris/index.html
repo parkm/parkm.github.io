@@ -24,6 +24,7 @@
   #settings label { display:flex; justify-content:space-between; gap:10px; }
   #settings input, #settings select { width:110px; background:#111; color:#ccc; border:1px solid #444; font-family:inherit; }
   #settings input { width:60px; }
+  #reset-settings { font:inherit; font-size:11px; color:#999; background:none; border:1px solid #444; border-radius:3px; padding:1px 8px; cursor:pointer; }
   #settings > summary { display:none; }
 
   /* ---- narrow screens: shrink the side panels, let the board scale to fit ---- */
@@ -111,14 +112,16 @@
   <details id="settings" open>
     <summary>options</summary>
     <div class="body">
-    <label>DAS <input id="das" type="number" value="133"></label>
-    <label>ARR <input id="arr" type="number" value="10"></label>
-    <label>SDF <select id="sdf"><option value="0">slow</option><option value="1">fast</option><option value="2" selected>2 (default)</option><option value="3">3</option><option value="4">instant</option></select></label>
-    <label>Gravity <input id="grav" type="number" value="1" min="0" max="28"></label>
+    <label>DAS <input id="das" type="number" min="0"></label>
+    <label>ARR <input id="arr" type="number" min="0"></label>
+    <label title="ms after a piece locks on its own during which hard drop is ignored (0 = off)">Drop guard <input id="hdguard" type="number" min="0"></label>
+    <label>SDF <select id="sdf"><option value="0">slow</option><option value="1">fast</option><option value="2">2 (default)</option><option value="3">3</option><option value="4">instant</option></select></label>
+    <label>Gravity <input id="grav" type="number" min="0" max="28"></label>
     <label>Mode <select id="mode">
       <option value="0">Free play</option>
       <option value="3:1">Cheese 10L</option>
     </select></label>
+    <button type="button" id="reset-settings">reset to defaults</button>
     <label>Touch <select id="touch-mode"><option value="auto">auto</option><option value="gestures">gestures</option><option value="buttons">buttons</option><option value="off">off</option></select></label>
     </div>
   </details>
