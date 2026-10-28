@@ -1,299 +1,488 @@
 import { useState } from "react";
-import { DateTime, Duration } from "luxon";
+import { DateTime, Interval } from "luxon";
+import {
+  parseAsArrayOf,
+  parseAsBoolean,
+  parseAsInteger,
+  parseAsString,
+  parseAsStringLiteral,
+  useQueryStates,
+} from "nuqs";
+import { NuqsAdapter } from "nuqs/adapters/react";
 
-type Operation = "add" | "diff";
+const MODES = ["add", "between"] as const;
+const UNITS = ["years", "months", "weeks", "days", "hours", "minutes"] as const;
+type Unit = (typeof UNITS)[number];
+const TIME_UNITS: Unit[] = ["hours", "minutes"];
 
-interface DateResult {
-  type: "date";
-  label: string;
-  iso: string | null;
-  locale: string;
+const PRESETS: { label: string; amounts: Partial<Record<Unit, number>> }[] = [
+  { label: "1 week", amounts: { weeks: 1 } },
+  { label: "2 weeks", amounts: { weeks: 2 } },
+  { label: "30 days", amounts: { days: 30 } },
+  { label: "90 days", amounts: { days: 90 } },
+  { label: "6 months", amounts: { months: 6 } },
+  { label: "1 year", amounts: { years: 1 } },
+];
+
+const FORMAT = "yyyy-MM-dd'T'HH:mm";
+const now = () => DateTime.now().set({ second: 0, millisecond: 0 });
+const parse = (value: string) => DateTime.fromFormat(value, FORMAT);
+const isWeekend = (date: DateTime) => date.weekday > 5;
+
+const plural = (n: number, unit: string) =>
+  `${n.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${
+    n === 1 ? unit.replace(/s$/, "") : unit
+  }`;
+
+const round = (n: number) => Math.round(n * 10) / 10;
+
+function addBusinessDays(date: DateTime, days: number) {
+  const step = Math.sign(days);
+  let result = date;
+  for (let left = Math.abs(days); left > 0; ) {
+    result = result.plus({ days: step });
+    if (!isWeekend(result)) left--;
+  }
+  return result;
 }
 
-interface DiffResult {
-  type: "diff";
-  diff: Record<string, number>;
+function weekdaysBetween(start: DateTime, end: DateTime) {
+  let count = 0;
+  for (
+    let day = start.startOf("day");
+    day < end.startOf("day") && count < 1e6;
+    day = day.plus({ days: 1 })
+  ) {
+    if (!isWeekend(day)) count++;
+  }
+  return count;
 }
 
-type Result = DateResult | DiffResult | null;
-
-const durationFields = [
-  "years",
-  "months",
-  "weeks",
-  "days",
-  "hours",
-  "minutes",
-] as const;
-type DurationUnit = (typeof durationFields)[number];
-
-export const DateCalculator = () => {
-  const [baseDate, setBaseDate] = useState<string>(
-    DateTime.now().toISO({ suppressMilliseconds: true }) ?? "",
-  );
-  const [operation, setOperation] = useState<Operation>("add");
-  const [secondDate, setSecondDate] = useState<string>("");
-  const [duration, setDuration] = useState<Record<DurationUnit, number>>({
-    years: 0,
-    months: 0,
-    weeks: 0,
-    days: 0,
-    hours: 0,
-    minutes: 0,
-  });
-  const [granularity, setGranularity] = useState<DurationUnit[]>([
-    ...durationFields,
-  ]);
-  const [result, setResult] = useState<Result>(null);
-
-  const inputClasses =
-    "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors";
-
-  const labelClasses =
-    "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2";
-
-  const buttonClasses =
-    "px-6 py-2.5 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2";
-
-  const primaryButtonClasses = `${buttonClasses} bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md focus:ring-blue-500`;
-
-  const secondaryButtonClasses = `${buttonClasses} bg-gray-600 hover:bg-gray-700 text-white shadow-sm hover:shadow-md focus:ring-gray-500`;
-
-  const handleDurationChange = (field: DurationUnit, value: string) => {
-    const numericValue = Number(value);
-    setDuration({
-      ...duration,
-      [field]: isNaN(numericValue) ? 0 : numericValue,
-    });
-  };
-
-  const setBaseToNow = () => {
-    setBaseDate(DateTime.now().toISO({ suppressMilliseconds: true }) ?? "");
-  };
-
-  const setSecondToNow = () => {
-    setSecondDate(DateTime.now().toISO({ suppressMilliseconds: true }) ?? "");
-  };
-
-  const handleGranularityChange = (value: DurationUnit) => {
-    setGranularity((prev) =>
-      prev.includes(value) ? prev.filter((g) => g !== value) : [...prev, value],
-    );
-  };
-
-  const calculate = () => {
-    const fallbackIso =
-      DateTime.now().toISO({ suppressMilliseconds: true }) ?? "";
-    const dt1 = DateTime.fromISO(baseDate || fallbackIso);
-
-    if (operation === "add") {
-      const dur = Duration.fromObject(duration);
-      const newDate = dt1.plus(dur);
-      setResult({
-        type: "date",
-        label: newDate.toFormat("yyyy LLL dd, HH:mm"),
-        iso: newDate.toISO(),
-        locale: newDate.setLocale("en").toLocaleString(DateTime.DATETIME_FULL),
-      });
-    }
-
-    if (operation === "diff") {
-      if (!secondDate) {
-        alert("Please enter a second date");
-        return;
-      }
-      const dt2 = DateTime.fromISO(secondDate);
-      const diff = dt2.diff(dt1, granularity).toObject();
-      setResult({
-        type: "diff",
-        diff: diff as Record<string, number>,
-      });
-    }
-  };
-
+function Toggle({
+  checked,
+  onChange,
+  children,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="max-w-4xl mx-auto p-8 space-y-6 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-      <header className="text-center border-b border-gray-200 dark:border-gray-700 pb-6">
-        <h1 className="text-3xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-          Date & Time Calculator
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Calculate date differences and add durations with precision
-        </p>
-      </header>
+    <label className="dc-check">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span>{children}</span>
+    </label>
+  );
+}
 
-      <div className="space-y-6">
-        <div>
-          <label htmlFor="base-date" className={labelClasses}>
-            Base Date &amp; Time
-          </label>
-          <div className="flex gap-3">
-            <input
-              id="base-date"
-              type="datetime-local"
-              value={baseDate.slice(0, 16)}
-              onChange={(e) => setBaseDate(e.target.value)}
-              className={`${inputClasses} flex-1`}
-            />
-            <button
-              type="button"
-              onClick={setBaseToNow}
-              className={secondaryButtonClasses}
-            >
-              Now
-            </button>
-          </div>
-        </div>
+function Segmented<T extends string>({
+  name,
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  name: string;
+  label: string;
+  value: T;
+  options: readonly (readonly [T, string])[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <fieldset className="dc-segmented">
+      <legend className="dc-sr-only">{label}</legend>
+      {options.map(([option, text]) => (
+        <label key={option}>
+          <input
+            type="radio"
+            name={name}
+            checked={value === option}
+            onChange={() => onChange(option)}
+          />
+          <span>{text}</span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
 
-        <div>
-          <label htmlFor="operation" className={labelClasses}>
-            Operation Type
-          </label>
-          <select
-            id="operation"
-            value={operation}
-            onChange={(e) => setOperation(e.target.value as Operation)}
-            className={inputClasses}
-          >
-            <option value="add">Add Duration to Date</option>
-            <option value="diff">Calculate Difference Between Dates</option>
-          </select>
-        </div>
-
-        {operation === "add" && (
-          <div>
-            <label className={labelClasses} htmlFor="duration-years">
-              Duration to Add
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-              {durationFields.map((field) => (
-                <div key={field}>
-                  <label
-                    htmlFor={`duration-${field}`}
-                    className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 capitalize"
-                  >
-                    {field}
-                  </label>
-                  <input
-                    id={`duration-${field}`}
-                    type="number"
-                    value={duration[field]}
-                    onChange={(e) =>
-                      handleDurationChange(field, e.target.value)
-                    }
-                    className={inputClasses}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {operation === "diff" && (
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="second-date" className={labelClasses}>
-                Second Date &amp; Time
-              </label>
-              <div className="flex gap-3">
-                <input
-                  id="second-date"
-                  type="datetime-local"
-                  value={secondDate ? secondDate.slice(0, 16) : ""}
-                  onChange={(e) => setSecondDate(e.target.value)}
-                  className={`${inputClasses} flex-1`}
-                />
-                <button
-                  type="button"
-                  onClick={setSecondToNow}
-                  className={secondaryButtonClasses}
-                >
-                  Now
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className={labelClasses}>Granularity</label>
-              <div className="flex flex-wrap gap-3">
-                {durationFields.map((g) => (
-                  <label
-                    key={g}
-                    htmlFor={`granularity-${g}`}
-                    className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300"
-                  >
-                    <input
-                      id={`granularity-${g}`}
-                      type="checkbox"
-                      checked={granularity.includes(g)}
-                      onChange={() => handleGranularityChange(g)}
-                    />
-                    <span className="capitalize">{g}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <button
-          onClick={calculate}
-          className={`${primaryButtonClasses} w-full py-3 text-lg font-semibold`}
-        >
-          Calculate Result
+function DateField({
+  id,
+  label,
+  value,
+  withTime,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: DateTime;
+  withTime: boolean;
+  /** null means "now", which is what the Today/Now button sets. */
+  onChange: (value: DateTime | null) => void;
+}) {
+  return (
+    <div className="dc-field">
+      <label htmlFor={id}>{label}</label>
+      <div className="dc-date">
+        <input
+          id={id}
+          type={withTime ? "datetime-local" : "date"}
+          value={value.toFormat(withTime ? FORMAT : "yyyy-MM-dd")}
+          onChange={(e) => {
+            const next = withTime
+              ? parse(e.target.value)
+              : DateTime.fromISO(e.target.value).set({
+                  hour: value.hour,
+                  minute: value.minute,
+                });
+            if (next.isValid) onChange(next);
+          }}
+        />
+        <button type="button" onClick={() => onChange(null)}>
+          {withTime ? "Now" : "Today"}
         </button>
-
-        {result && (
-          <div className="rounded-lg p-6 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-            {result.type === "date" && (
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  Calculated Date
-                </h3>
-                <div className="grid gap-3">
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600">
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      Formatted Date:
-                    </span>
-                    <span className="text-gray-900 dark:text-gray-100 font-mono">
-                      {result.label}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600">
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      ISO Format:
-                    </span>
-                    <span className="text-gray-900 dark:text-gray-100 font-mono text-sm">
-                      {result.iso}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      Full Locale:
-                    </span>
-                    <span className="text-gray-900 dark:text-gray-100 text-sm">
-                      {result.locale}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {result.type === "diff" && (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  Time Difference
-                </h3>
-                <div className="bg-gray-900 rounded-md p-4">
-                  <pre className="text-green-400 text-sm overflow-x-auto">
-                    {JSON.stringify(result.diff, null, 2)}
-                  </pre>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="dc-copy"
+      onClick={async () => {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+    >
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+// Everything lives in the URL so a calculation can be shared or bookmarked.
+// Values at their defaults are left out, and a missing date means "now".
+const queryParsers = {
+  mode: parseAsStringLiteral(MODES).withDefault("add"),
+  time: parseAsBoolean.withDefault(false),
+  from: parseAsString,
+  to: parseAsString,
+  subtract: parseAsBoolean.withDefault(false),
+  business: parseAsBoolean.withDefault(false),
+  units: parseAsArrayOf(parseAsStringLiteral(UNITS)).withDefault([
+    "years",
+    "months",
+    "days",
+  ]),
+  inclusive: parseAsBoolean.withDefault(false),
+  years: parseAsInteger,
+  months: parseAsInteger,
+  weeks: parseAsInteger,
+  days: parseAsInteger,
+  hours: parseAsInteger,
+  minutes: parseAsInteger,
+} as const;
+
+const fromQuery = (value: string | null, fallback: DateTime) => {
+  const date = value ? DateTime.fromISO(value) : null;
+  return date?.isValid ? date : fallback;
 };
+
+const Calculator = () => {
+  const [query, setQuery] = useQueryStates(queryParsers);
+  const [loadedAt] = useState(now);
+  const { mode, time: withTime, subtract, units } = query;
+  const businessDays = query.business;
+  const includeEnd = query.inclusive;
+  const amounts: Record<Unit, number | null> = query;
+
+  const start = fromQuery(query.from, loadedAt);
+  const end = fromQuery(query.to, loadedAt.plus({ months: 1 }));
+
+  const toQuery = (date: DateTime | null) =>
+    date && (withTime ? date.toFormat(FORMAT) : date.toISODate());
+  const setStart = (date: DateTime | null) => setQuery({ from: toQuery(date) });
+  const setEnd = (date: DateTime | null) => setQuery({ to: toQuery(date) });
+
+  const visibleUnits = withTime
+    ? [...UNITS]
+    : UNITS.filter((u) => !TIME_UNITS.includes(u));
+
+  const added = (() => {
+    const sign = subtract ? -1 : 1;
+    const n = (unit: Unit) =>
+      withTime || !TIME_UNITS.includes(unit) ? (amounts[unit] ?? 0) * sign : 0;
+
+    let date = start.plus({
+      years: n("years"),
+      months: n("months"),
+      weeks: n("weeks"),
+    });
+    date = businessDays
+      ? addBusinessDays(date, n("days"))
+      : date.plus({ days: n("days") });
+    return date.plus({ hours: n("hours"), minutes: n("minutes") });
+  })();
+
+  const between = (() => {
+    const earlier = end < start;
+    let [a, b] = earlier ? [end, start] : [start, end];
+    if (!withTime) [a, b] = [a.startOf("day"), b.startOf("day")];
+    if (includeEnd && !withTime) b = b.plus({ days: 1 });
+
+    const chosen = visibleUnits.filter((u) => units.includes(u));
+    const breakdown = chosen.length ? chosen : (["days"] as Unit[]);
+    const parts = b.diff(a, breakdown).toObject();
+    const text = breakdown
+      .map((unit) => [unit, round(parts[unit] ?? 0)] as const)
+      .filter(([, n]) => n)
+      .map(([unit, n]) => plural(n, unit))
+      .join(", ");
+
+    const span = Interval.fromDateTimes(a, b);
+    return {
+      earlier,
+      text: text || (withTime ? "Same moment" : "Same day"),
+      days: round(span.length("days")),
+      weeks: round(span.length("weeks")),
+      hours: round(span.length("hours")),
+      weekdays: weekdaysBetween(a, b),
+    };
+  })();
+
+  const setPreset = (preset: Partial<Record<Unit, number>>) =>
+    setQuery(Object.fromEntries(UNITS.map((u) => [u, preset[u] ?? null])));
+
+  const toggleUnit = (unit: Unit) =>
+    setQuery({
+      units: units.includes(unit)
+        ? units.filter((u) => u !== unit)
+        : [...units, unit],
+    });
+
+  const addedText = withTime
+    ? `${added.toLocaleString(DateTime.DATE_HUGE)}, ${added.toLocaleString(DateTime.TIME_SIMPLE)}`
+    : added.toLocaleString(DateTime.DATE_HUGE);
+
+  return (
+    <div className="dc">
+      <h1>Date calculator</h1>
+
+      <div className="dc-top">
+        <Segmented
+          name="mode"
+          label="Mode"
+          value={mode}
+          options={[
+            ["add", "Add or subtract"],
+            ["between", "Between dates"],
+          ]}
+          onChange={(mode) => setQuery({ mode })}
+        />
+        <Toggle checked={withTime} onChange={(time) => setQuery({ time })}>
+          Include time
+        </Toggle>
+      </div>
+
+      {mode === "add" ? (
+        <div className="dc-inputs">
+          <DateField
+            id="start"
+            label="From"
+            value={start}
+            withTime={withTime}
+            onChange={setStart}
+          />
+
+          <div className="dc-amounts">
+            <Segmented
+              name="direction"
+              label="Direction"
+              value={subtract ? "subtract" : "add"}
+              options={[
+                ["add", "Add"],
+                ["subtract", "Subtract"],
+              ]}
+              onChange={(v) => setQuery({ subtract: v === "subtract" })}
+            />
+
+            <div className="dc-chips" role="group" aria-label="Quick amounts">
+              {PRESETS.map(({ label, amounts }) => (
+                <button
+                  key={label}
+                  type="button"
+                  className="dc-chip"
+                  onClick={() => setPreset(amounts)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="dc-amount-grid">
+              {visibleUnits.map((unit) => (
+                <div key={unit} className="dc-amount">
+                  <input
+                    id={`amount-${unit}`}
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    placeholder="0"
+                    value={amounts[unit] ?? ""}
+                    onChange={(e) =>
+                      setQuery({
+                        [unit]:
+                          e.target.value === "" ? null : Number(e.target.value),
+                      })
+                    }
+                  />
+                  <label htmlFor={`amount-${unit}`}>
+                    {unit === "days" && businessDays ? "business days" : unit}
+                  </label>
+                </div>
+              ))}
+            </div>
+
+            <Toggle
+              checked={businessDays}
+              onChange={(business) => setQuery({ business })}
+            >
+              Count days as business days (skip weekends)
+            </Toggle>
+          </div>
+        </div>
+      ) : (
+        <div className="dc-inputs">
+          <div className="dc-range">
+            <DateField
+              id="start"
+              label="Start"
+              value={start}
+              withTime={withTime}
+              onChange={setStart}
+            />
+            <button
+              type="button"
+              className="dc-swap"
+              aria-label="Swap start and end"
+              onClick={() => {
+                setQuery({ from: toQuery(end), to: toQuery(start) });
+              }}
+            >
+              ⇅
+            </button>
+            <DateField
+              id="end"
+              label="End"
+              value={end}
+              withTime={withTime}
+              onChange={setEnd}
+            />
+          </div>
+
+          <fieldset className="dc-units">
+            <legend>Show the difference in</legend>
+            <div className="dc-chips">
+              {visibleUnits.map((unit) => (
+                <label key={unit} className="dc-chip">
+                  <input
+                    type="checkbox"
+                    checked={units.includes(unit)}
+                    onChange={() => toggleUnit(unit)}
+                  />
+                  <span>{unit}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {!withTime && (
+            <Toggle
+              checked={includeEnd}
+              onChange={(inclusive) => setQuery({ inclusive })}
+            >
+              Include the end date
+            </Toggle>
+          )}
+        </div>
+      )}
+
+      <section className="dc-result" aria-live="polite">
+        {mode === "add" ? (
+          <>
+            <div className="dc-answer-row">
+              <p className="dc-answer">{addedText}</p>
+              <CopyButton text={addedText} />
+            </div>
+            <p className="dc-sub">
+              {withTime
+                ? added.toRelative({ base: now() })
+                : added.toRelativeCalendar({ base: now() })}
+            </p>
+            <dl>
+              <div>
+                <dt>Week</dt>
+                <dd>{added.weekNumber}</dd>
+              </div>
+              <div>
+                <dt>Day of year</dt>
+                <dd>{added.ordinal}</dd>
+              </div>
+              <div className="dc-wide">
+                <dt>ISO 8601</dt>
+                <dd>
+                  {withTime
+                    ? added.toISO({ suppressMilliseconds: true })
+                    : added.toISODate()}
+                </dd>
+              </div>
+            </dl>
+          </>
+        ) : (
+          <>
+            <div className="dc-answer-row">
+              <p className="dc-answer">{between.text}</p>
+              <CopyButton text={between.text} />
+            </div>
+            {between.earlier && (
+              <p className="dc-sub">The end is before the start.</p>
+            )}
+            <dl>
+              <div>
+                <dt>Days</dt>
+                <dd>{between.days.toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt>Weeks</dt>
+                <dd>{between.weeks.toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt>Weekdays</dt>
+                <dd>{between.weekdays.toLocaleString()}</dd>
+              </div>
+              {withTime && (
+                <div>
+                  <dt>Hours</dt>
+                  <dd>{between.hours.toLocaleString()}</dd>
+                </div>
+              )}
+            </dl>
+          </>
+        )}
+      </section>
+    </div>
+  );
+};
+
+export const DateCalculator = () => (
+  <NuqsAdapter>
+    <Calculator />
+  </NuqsAdapter>
+);

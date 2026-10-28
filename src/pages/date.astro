@@ -4,24 +4,320 @@ export const description = "Various date math operations";
 export const icon = CalendarDays;
 export const category = "Tools";
 
+import "@fontsource-variable/archivo/wdth.css";
 import { CalendarDays } from "lucide-react";
 import Layout from "../layouts/Layout.astro";
 import { DateCalculator } from "../components/DateCalculator";
-import DarkModeToggle from "@/components/DarkModeToggle.astro";
 ---
 
 <Layout title={title} description={description}>
-  <main
-    class="min-h-screen py-12 px-4 sm:px-6 lg:px-8
-           bg-gradient-to-br from-indigo-50 via-white to-pink-50
-           dark:from-gray-900 dark:via-gray-950 dark:to-black
-           transition-colors duration-500"
-  >
-    <div class="max-w-5xl mx-auto space-y-8">
-      <DateCalculator client:load />
-      <div class="flex justify-center">
-        <DarkModeToggle id="dark-mode-toggle" />
-      </div>
-    </div>
+  <main class="date-page">
+    <DateCalculator client:only="react" />
   </main>
 </Layout>
+
+<style is:global>
+  html:has(.date-page) {
+    --dc-paper: oklch(0.966 0.006 150);
+    --dc-ink: oklch(0.21 0.016 160);
+    --dc-muted: oklch(0.5 0.014 160);
+    --dc-rule: oklch(0.21 0.016 160 / 0.14);
+    --dc-field: oklch(1 0 0 / 0.7);
+    background: var(--dc-paper);
+    color: var(--dc-ink);
+    font-family: "Archivo Variable", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  html.dark:has(.date-page) {
+    --dc-paper: oklch(0.19 0.012 240);
+    --dc-ink: oklch(0.92 0.008 220);
+    --dc-muted: oklch(0.68 0.012 220);
+    --dc-rule: oklch(0.92 0.008 220 / 0.14);
+    --dc-field: oklch(1 0 0 / 0.05);
+    color-scheme: dark;
+  }
+
+  .date-page {
+    min-height: 100svh;
+    padding: clamp(2rem, 6vh, 4rem) 1.25rem 4rem;
+    background: var(--dc-paper);
+    color: var(--dc-ink);
+  }
+
+  .dc {
+    max-width: 36rem;
+    margin: 0 auto;
+  }
+
+  .dc h1 {
+    font-size: clamp(2rem, 6vw, 3rem);
+    font-stretch: 115%;
+    font-weight: 720;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+
+  .dc-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .dc fieldset {
+    border: 0;
+  }
+
+  .dc :focus-visible {
+    outline: 2px solid var(--dc-ink);
+    outline-offset: 2px;
+  }
+
+  .dc-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.5rem;
+    margin-top: 2rem;
+  }
+
+  /* Segmented control: radios styled as one pill. */
+  .dc-segmented {
+    display: inline-flex;
+    padding: 0.25rem;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px var(--dc-rule);
+  }
+
+  .dc-segmented label,
+  label.dc-chip,
+  .dc-check {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .dc-segmented input,
+  label.dc-chip input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: inherit;
+  }
+
+  .dc-segmented span {
+    display: block;
+    padding: 0.4375rem 0.9375rem;
+    border-radius: 999px;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--dc-muted);
+    transition:
+      background-color 150ms ease-out,
+      color 150ms ease-out;
+  }
+
+  .dc-segmented input:checked + span {
+    color: var(--dc-paper);
+    background: var(--dc-ink);
+  }
+
+  .dc-segmented input:focus-visible + span,
+  label.dc-chip input:focus-visible + span {
+    outline: 2px solid var(--dc-ink);
+    outline-offset: 2px;
+  }
+
+  /* Checkbox toggles */
+  .dc-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9375rem;
+  }
+
+  .dc-check input {
+    width: 1.125rem;
+    height: 1.125rem;
+    accent-color: var(--dc-ink);
+  }
+
+  /* Inputs */
+  .dc-inputs {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 2.25rem;
+  }
+
+  .dc-field > label,
+  .dc-units legend {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .dc input[type="date"],
+  .dc input[type="datetime-local"],
+  .dc input[type="number"] {
+    width: 100%;
+    min-width: 0;
+    height: 2.75rem;
+    padding: 0 0.75rem;
+    border-radius: 0.5rem;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    color: inherit;
+    background: var(--dc-field);
+    box-shadow: inset 0 0 0 1px var(--dc-rule);
+  }
+
+  .dc-date {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .dc-date button,
+  .dc-swap,
+  .dc-copy {
+    flex-shrink: 0;
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    box-shadow: inset 0 0 0 1px var(--dc-rule);
+  }
+
+  .dc-range {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .dc-swap {
+    justify-self: start;
+    min-height: 2.25rem;
+    padding: 0 0.75rem;
+    font-size: 1.125rem;
+  }
+
+  .dc-amounts {
+    display: grid;
+    justify-items: start;
+    gap: 1rem;
+  }
+
+  .dc-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .dc-chip,
+  label.dc-chip span {
+    display: block;
+    padding: 0.375rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    box-shadow: inset 0 0 0 1px var(--dc-rule);
+  }
+
+  label.dc-chip {
+    padding: 0;
+    box-shadow: none;
+  }
+
+  label.dc-chip input:checked + span {
+    color: var(--dc-paper);
+    background: var(--dc-ink);
+    box-shadow: none;
+  }
+
+  .dc-amount-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(4.25rem, 1fr));
+    gap: 0.75rem;
+    width: 100%;
+  }
+
+  .dc-amount {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .dc-amount label {
+    font-size: 0.8125rem;
+    color: var(--dc-muted);
+  }
+
+  @media (hover: hover) {
+    .dc-date button:hover,
+    .dc-swap:hover,
+    .dc-copy:hover,
+    button.dc-chip:hover,
+    label.dc-chip:hover span {
+      background: var(--dc-rule);
+    }
+
+    label.dc-chip:hover input:checked + span {
+      background: var(--dc-ink);
+    }
+  }
+
+  /* Result */
+  .dc-result {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--dc-rule);
+  }
+
+  .dc-answer-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .dc-copy {
+    min-height: 2.25rem;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+  }
+
+  .dc-answer {
+    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    font-stretch: 110%;
+    font-weight: 650;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  .dc-sub {
+    margin-top: 0.5rem;
+    color: var(--dc-muted);
+  }
+
+  .dc-result dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+    gap: 1rem;
+    margin-top: 1.75rem;
+  }
+
+  .dc-result dt {
+    font-size: 0.8125rem;
+    color: var(--dc-muted);
+  }
+
+  .dc-result .dc-wide {
+    grid-column: 1 / -1;
+  }
+
+  .dc-result dd {
+    margin-top: 0.125rem;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+</style>
