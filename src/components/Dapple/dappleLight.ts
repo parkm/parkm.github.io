@@ -31,8 +31,17 @@ float noise(vec2 p) {
 
 mat2 rot(float a) { return mat2(cos(a), sin(a), -sin(a), cos(a)); }
 
+// Pointed at both ends and widest toward the stem; 1.0 on the outline.
+float leafShape(vec2 d, float size) {
+  float x = d.x / size;
+  float y = d.y / (size * 0.42 * (1.0 - 0.3 * x));
+  return x * x + abs(y);
+}
+
 float leaves(vec2 p, float cell, float softness, float seed, float t) {
   vec2 q = p / cell;
+  // Wobble the outlines so no two leaves are the same clean shape.
+  q += (vec2(noise(q * 2.3 + seed), noise(q * 2.3 + seed + 5.2)) - 0.5) * 0.18;
   vec2 id = floor(q);
   float cover = 0.0;
   for (int y = -1; y <= 1; y++) {
@@ -40,12 +49,28 @@ float leaves(vec2 p, float cell, float softness, float seed, float t) {
       vec2 c = id + vec2(x, y);
       float h = hash(c + seed);
       if (h < 0.3 + 0.6 * smoothstep(0.3, 0.7, noise(c * 0.2 + seed))) continue;
-      vec2 offset = vec2(hash(c + seed + 1.3), hash(c + seed + 7.1));
-      float sway = sin(t * 0.8 + h * 6.283) * 0.07 + sin(t * 0.31 + h * 17.0) * 0.05;
-      vec2 d = rot(h * 6.283 + sway * 2.0) * (q - c - offset - vec2(sway, sway * 0.35));
-      float size = 0.42 + 0.3 * hash(c + seed + 3.7);
-      float e = length(d / vec2(size, size * 0.45));
-      cover = max(cover, 1.0 - smoothstep(1.0 - softness, 1.0 + softness, e));
+      vec2 offset = 0.25 + 0.5 * vec2(hash(c + seed + 1.3), hash(c + seed + 7.1));
+      // Gusts roll across the canopy so neighbours move together, and the
+      // leaves flutter more while a gust passes.
+      float wave = sin(t * 0.45 - c.x * 0.45 - c.y * 0.2 + h * 1.5);
+      float sway = wave * 0.07 + sin(t * 0.2 + h * 17.0) * 0.05;
+      float flutter = sin(t * 1.3 + h * 40.0) * 0.025 * (1.0 + wave);
+      vec2 twig = q - c - offset - vec2(sway, sway * 0.35);
+      float size = 0.3 + 0.2 * hash(c + seed + 3.7);
+      // Penumbra varies across the canopy: some leaves crisp, some blurred.
+      float soft = softness * (0.6 + 0.8 * noise(c * 0.15 + seed + 2.0));
+      // A loose spray of up to three leaves along each twig.
+      for (int k = 0; k < 3; k++) {
+        float fk = float(k);
+        float hk = hash(c + seed + fk * 9.1);
+        if (k != 1 && hk < 0.45) continue;
+        float s = size * (0.7 + 0.3 * hk);
+        float a = h * 6.283 + sway * 2.0 + flutter * (1.0 + 0.5 * fk) + (fk - 1.0) * (0.6 + 1.2 * hk);
+        vec2 stem = (fk - 1.0) * vec2(0.22, 0.12 * hk);
+        vec2 d = rot(a) * (twig - stem) - vec2(s, 0.0);
+        float e = leafShape(d, s);
+        cover = max(cover, 1.0 - smoothstep(1.0 - soft, 1.0 + soft, e));
+      }
     }
   }
   return cover;
