@@ -1,0 +1,8 @@
+---
+// Loads Archivo and preloads the latin subset so it's ready before first paint,
+// avoiding a flash of the system-ui fallback. Use with slot="head".
+import "@fontsource-variable/archivo/wdth.css";
+import archivoLatin from "@fontsource-variable/archivo/files/archivo-latin-wdth-normal.woff2?url";
+---
+
+<link rel="preload" href={archivoLatin} as="font" type="font/woff2" crossorigin />

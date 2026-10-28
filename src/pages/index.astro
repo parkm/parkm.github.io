@@ -1,5 +1,5 @@
 ---
-import "@fontsource-variable/archivo/wdth.css";
+import ArchivoFont from "../components/ArchivoFont.astro";
 import Layout from "../layouts/Layout.astro";
 import CanopyLogo from "../components/CanopyLogo.astro";
 import InstructureLogo from "../components/InstructureLogo.astro";
@@ -28,6 +28,7 @@ const jobs = sections.map((section, i) => {
 ---
 
 <Layout title={facts.title} description={facts.description} themeColor="#f3f5f2">
+  <ArchivoFont slot="head" />
   <script
     is:inline
     slot="head"

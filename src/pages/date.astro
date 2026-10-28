@@ -4,13 +4,14 @@ export const description = "Various date math operations";
 export const icon = CalendarDays;
 export const category = "Tools";
 
-import "@fontsource-variable/archivo/wdth.css";
+import ArchivoFont from "../components/ArchivoFont.astro";
 import { CalendarDays } from "lucide-react";
 import Layout from "../layouts/Layout.astro";
 import { DateCalculator } from "../components/DateCalculator";
 ---
 
 <Layout title={title} description={description}>
+  <ArchivoFont slot="head" />
   <main class="date-page">
     <DateCalculator client:only="react" />
   </main>

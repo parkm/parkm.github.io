@@ -4,7 +4,7 @@ export const description = "Box breathing exercise with visual guidance";
 export const icon = Wind;
 export const category = "Tools";
 
-import "@fontsource-variable/archivo/wdth.css";
+import ArchivoFont from "../components/ArchivoFont.astro";
 import { Wind } from "lucide-react";
 import Layout from "../layouts/Layout.astro";
 
@@ -13,6 +13,7 @@ const DEFAULT_DURATION = 4;
 ---
 
 <Layout title={title} description={description}>
+  <ArchivoFont slot="head" />
   <main class="breathe">
     <h1 class="title">Box breathing</h1>
 
