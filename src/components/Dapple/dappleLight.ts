@@ -110,8 +110,10 @@ function sunPosition(date: Date) {
  * Renders the light into a fixed full-window canvas. No-op without WebGL.
  */
 export function startDappleLight(canvas: HTMLCanvasElement) {
+  // Alpha so an undrawn buffer (e.g. right after a resize) is transparent
+  // rather than black, which would multiply the whole page to black.
   const gl = canvas.getContext("webgl2", {
-    alpha: false,
+    alpha: true,
     antialias: false,
     depth: false,
     powerPreference: "low-power",
