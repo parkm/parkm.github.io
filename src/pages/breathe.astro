@@ -4,295 +4,426 @@ export const description = "Box breathing exercise with visual guidance";
 export const icon = Wind;
 export const category = "Tools";
 
+import "@fontsource-variable/archivo/wdth.css";
 import { Wind } from "lucide-react";
 import Layout from "../layouts/Layout.astro";
+
+const DURATIONS = [3, 4, 5, 6, 7, 8];
+const DEFAULT_DURATION = 4;
 ---
 
 <Layout title={title} description={description}>
-  <div
-    class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#3b82f6] animate-gradient relative overflow-hidden"
-  >
-    <!-- Breathing Box -->
-    <div class="relative mb-12 z-10">
-      <div
-        id="breathingBox"
-        class="relative w-80 h-80 border-4 border-blue-400/60 bg-blue-900/30 backdrop-blur-md shadow-[0_0_40px_rgba(59,130,246,0.25)] rounded-2xl transition-transform duration-1000 ease-in-out"
-      >
-        <div
-          id="tracer"
-          class="absolute w-10 h-10 flex items-center justify-center text-2xl rounded-full shadow-lg animate-pulse-glow bg-blue-900/80 backdrop-blur-sm"
-          style="top: -20px; left: -20px;"
-        >
-        </div>
-        <div
-          class="absolute inset-0 flex flex-col items-center justify-center text-center"
-        >
-          <div id="emojiDisplay" class="text-4xl mb-2"></div>
-          <div
-            id="phaseDisplay"
-            class="text-2xl font-medium text-blue-100 mb-4 tracking-wide"
-          >
-            Ready to Begin
-          </div>
-          <div
-            id="countDisplay"
-            class="text-7xl font-extrabold text-sky-300 drop-shadow-glow"
-          >
-            4
-          </div>
-        </div>
+  <main class="breathe">
+    <h1 class="title">Box breathing</h1>
+
+    <div class="halo">
+    <svg class="box" viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <radialGradient id="lung-fill">
+          <stop
+            offset="0%"
+            style="stop-color: var(--breathe-accent); stop-opacity: 0.55"
+          ></stop>
+          <stop
+            offset="100%"
+            style="stop-color: var(--breathe-accent); stop-opacity: 0.18"
+          ></stop>
+        </radialGradient>
+      </defs>
+      <rect class="frame" x="10" y="10" width="80" height="80" rx="6"></rect>
+      <path
+        id="track"
+        class="track"
+        d="M10 84 V16 Q10 10 16 10 H84 Q90 10 90 16 V84 Q90 90 84 90 H16 Q10 90 10 84"
+      ></path>
+      <rect
+        id="lung"
+        class="lung"
+        x="10"
+        y="10"
+        width="80"
+        height="80"
+        rx="6"
+        fill="url(#lung-fill)"
+        style="transform: scale(0.4)"></rect>
+      <circle id="tracer" class="tracer" cx="10" cy="84" r="2"></circle>
+    </svg>
+    <svg class="trail" viewBox="0 0 100 100" aria-hidden="true">
+      <path
+        id="trail"
+        d="M10 84 V16 Q10 10 16 10 H84 Q90 10 90 16 V84 Q90 90 84 90 H16 Q10 90 10 84"
+      ></path>
+    </svg>
+    </div>
+
+    <div class="readout">
+      <p id="phase" class="phase" aria-live="polite">
+        {DEFAULT_DURATION} seconds each: in, hold, out, hold
+      </p>
+      <p id="count" class="count" aria-hidden="true"></p>
+    </div>
+
+    <button id="toggle" class="toggle" type="button">Start</button>
+
+    <fieldset id="durations" class="durations">
+      <legend>Seconds per side</legend>
+      <div class="options">
+        {
+          DURATIONS.map((seconds) => (
+            <label>
+              <input
+                type="radio"
+                name="duration"
+                value={seconds}
+                checked={seconds === DEFAULT_DURATION}
+              />
+              <span>{seconds}</span>
+            </label>
+          ))
+        }
       </div>
-    </div>
-
-    <!-- Controls -->
-    <div class="flex gap-6 mb-8 z-10">
-      <button
-        id="startBtn"
-        class="px-8 py-4 bg-blue-600/90 text-white font-semibold rounded-xl shadow-md hover:bg-blue-700 transition"
-      >
-        Start
-      </button>
-      <button
-        id="stopBtn"
-        class="px-8 py-4 bg-rose-500/90 text-white font-semibold rounded-xl shadow-md hover:bg-rose-600 transition"
-      >
-        Stop
-      </button>
-    </div>
-    <div
-      id="sliderContainer"
-      class="w-80 bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-[0_0_20px_rgba(59,130,246,0.2)] z-10"
-    >
-      <label
-        for="durationSlider"
-        class="block text-center font-medium text-blue-100 mb-4"
-      >
-        Breath Duration:
-        <span id="durationValue" class="font-bold text-sky-300">4</span>
-        seconds
-      </label>
-      <input
-        id="durationSlider"
-        type="range"
-        min="3"
-        max="8"
-        value="4"
-        class="w-full h-2 bg-white/30 rounded-lg appearance-none cursor-pointer accent-blue-400"
-      />
-    </div>
-  </div>
-
-  <style>
-    /* Background soft shifting animation */
-    @keyframes gradientShift {
-      0% {
-        background-position: 0% 50%;
-      }
-      50% {
-        background-position: 100% 50%;
-      }
-      100% {
-        background-position: 0% 50%;
-      }
-    }
-    .animate-gradient {
-      background-size: 300% 300%;
-      animation: gradientShift 50s ease-in-out infinite;
-    }
-
-    /* Pulsating glow for tracer */
-    @keyframes pulseGlow {
-      0%,
-      100% {
-        box-shadow:
-          0 0 10px rgba(147, 197, 253, 0.6),
-          0 0 20px rgba(59, 130, 246, 0.5);
-      }
-      50% {
-        box-shadow:
-          0 0 22px rgba(147, 197, 253, 0.8),
-          0 0 35px rgba(59, 130, 246, 0.6);
-      }
-    }
-    .animate-pulse-glow {
-      animation: pulseGlow 6s ease-in-out infinite;
-    }
-
-    .drop-shadow-glow {
-      text-shadow:
-        0 0 14px rgba(147, 197, 253, 0.5),
-        0 0 24px rgba(59, 130, 246, 0.4);
-    }
-
-    #durationSlider::-webkit-slider-thumb,
-    #durationSlider::-moz-range-thumb {
-      appearance: none;
-      height: 20px;
-      width: 20px;
-      border-radius: 50%;
-      background: #3b82f6;
-      cursor: pointer;
-      box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
-      border: none;
-      transition: all 0.3s ease;
-    }
-    #durationSlider::-webkit-slider-thumb:hover,
-    #durationSlider::-moz-range-thumb:hover {
-      transform: scale(1.2);
-      box-shadow: 0 0 18px rgba(59, 130, 246, 0.8);
-    }
-  </style>
-
-  <script is:inline>
-    window.addEventListener("DOMContentLoaded", () => {
-      const startBtn = document.getElementById("startBtn");
-      const stopBtn = document.getElementById("stopBtn");
-      const slider = document.getElementById("durationSlider");
-      const phaseDisplay = document.getElementById("phaseDisplay");
-      const emojiDisplay = document.getElementById("emojiDisplay");
-      const countDisplay = document.getElementById("countDisplay");
-      const durationValue = document.getElementById("durationValue");
-      const breathingBox = document.getElementById("breathingBox");
-      const tracer = document.getElementById("tracer");
-      const sliderContainer = document.getElementById("sliderContainer");
-
-      tracer.style.left = "0";
-      tracer.style.top = "0";
-      tracer.style.willChange = "transform";
-
-      let isRunning = false;
-      let animationId = null;
-      let startTime = null;
-      let duration = parseInt(slider.value, 10);
-      let phase = 0;
-      let currentCount = duration;
-
-      const phases = ["Inhale", "Hold", "Exhale", "Hold"];
-      const emojis = ["🫁", "✋", "💨", "✋"];
-
-      // Hidden SVG for path
-      const svgNS = "http://www.w3.org/2000/svg";
-      const svg = document.createElementNS(svgNS, "svg");
-      svg.setAttribute("width", "0");
-      svg.setAttribute("height", "0");
-      svg.style.position = "absolute";
-      svg.style.pointerEvents = "none";
-      const rect = document.createElementNS(svgNS, "rect");
-      svg.appendChild(rect);
-      breathingBox.appendChild(svg);
-
-      let totalLength = 0;
-
-      function rebuildPath() {
-        const cs = getComputedStyle(breathingBox);
-        const w = breathingBox.clientWidth;
-        const h = breathingBox.clientHeight;
-        const bw = parseFloat(cs.borderTopWidth) || 0;
-
-        // offset inward by half border so we hit the center of the visible stroke
-        const inset = bw / 2;
-        const pathW = w + bw; // include both halfs
-        const pathH = h + bw;
-        const r = parseFloat(cs.borderTopLeftRadius) || 0;
-
-        rect.setAttribute("x", -inset);
-        rect.setAttribute("y", -inset);
-        rect.setAttribute("width", pathW);
-        rect.setAttribute("height", pathH);
-        rect.setAttribute("rx", r - inset);
-        rect.setAttribute("ry", r - inset);
-        rect.setAttribute("fill", "none");
-        rect.setAttribute("stroke", "none");
-
-        totalLength = rect.getTotalLength();
-      }
-
-      rebuildPath();
-      window.addEventListener("resize", rebuildPath);
-
-      function updateTracer(progress) {
-        const pt = rect.getPointAtLength(progress * totalLength);
-        const tracerR = 20;
-        tracer.style.transform = `translate3d(${pt.x - tracerR}px, ${pt.y - tracerR}px,0)`;
-      }
-
-      function updateDisplay() {
-        phaseDisplay.textContent = phases[phase];
-        emojiDisplay.textContent = emojis[phase];
-        tracer.textContent = emojis[phase];
-        countDisplay.textContent = Math.ceil(currentCount);
-
-        const colors = [
-          "text-green-400",
-          "text-yellow-400",
-          "text-blue-400",
-          "text-purple-400",
-        ];
-        countDisplay.className = `text-7xl font-extrabold ${colors[phase]}`;
-        breathingBox.style.transform =
-          phase < 2 ? "scale(1.05)" : "scale(0.95)";
-      }
-
-      function start() {
-        if (isRunning) return;
-        isRunning = true;
-        phase = 0;
-        currentCount = duration;
-        sliderContainer.style.display = "none";
-        startBtn.textContent = "Running...";
-        startBtn.disabled = true;
-        startTime = null;
-
-        const cycleDuration = () => duration * 4;
-
-        function animate(ts) {
-          if (!isRunning) return;
-          if (!startTime) startTime = ts;
-          const elapsed = (ts - startTime) / 1000;
-
-          const cd = cycleDuration();
-          const cycleProgress = (elapsed % cd) / cd;
-
-          const phaseProgress = (elapsed % cd) / duration;
-          phase = Math.floor(phaseProgress) % 4;
-          currentCount = duration - (elapsed % duration);
-
-          updateDisplay();
-          updateTracer(cycleProgress);
-
-          animationId = requestAnimationFrame(animate);
-        }
-
-        animationId = requestAnimationFrame(animate);
-      }
-
-      function stop() {
-        cancelAnimationFrame(animationId);
-        isRunning = false;
-        startBtn.textContent = "Start";
-        startBtn.disabled = false;
-        phaseDisplay.textContent = "Ready to Begin";
-        emojiDisplay.textContent = "";
-        tracer.textContent = "";
-        countDisplay.textContent = duration;
-        sliderContainer.style.display = "block";
-        updateTracer(0);
-        breathingBox.style.transform = "scale(1)";
-      }
-
-      slider.addEventListener("input", () => {
-        if (!isRunning) {
-          duration = parseInt(slider.value, 10);
-          durationValue.textContent = slider.value;
-          countDisplay.textContent = duration;
-        }
-      });
-
-      startBtn.addEventListener("click", start);
-      stopBtn.addEventListener("click", stop);
-
-      countDisplay.textContent = duration;
-      updateTracer(0);
-    });
-  </script>
+    </fieldset>
+  </main>
 </Layout>
+
+<style>
+  :global(html) {
+    --breathe-sky: oklch(0.96 0.025 225);
+    --breathe-deep: oklch(0.86 0.06 245);
+    --breathe-ink: oklch(0.3 0.07 255);
+    --breathe-muted: oklch(0.48 0.06 250);
+    --breathe-rule: oklch(0.3 0.07 255 / 0.18);
+    --breathe-accent: oklch(0.62 0.12 240);
+    --breathe-glow: oklch(0.99 0.02 220);
+    background: var(--breathe-sky);
+    color: var(--breathe-ink);
+    font-family: "Archivo Variable", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :global(html.dark) {
+    --breathe-sky: oklch(0.26 0.05 250);
+    --breathe-deep: oklch(0.16 0.04 262);
+    --breathe-ink: oklch(0.93 0.025 230);
+    --breathe-muted: oklch(0.74 0.04 235);
+    --breathe-rule: oklch(0.93 0.025 230 / 0.2);
+    --breathe-accent: oklch(0.7 0.1 235);
+    --breathe-glow: oklch(0.5 0.09 240);
+  }
+
+  :global(body) {
+    min-height: 100svh;
+    background: linear-gradient(var(--breathe-sky), var(--breathe-deep));
+    color: var(--breathe-ink);
+  }
+
+  .breathe {
+    --breath: 0.4;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100svh;
+    padding: 2rem 1.25rem;
+    overflow: hidden;
+  }
+
+  /* Soft light behind the square that swells with each breath in. */
+  .halo {
+    position: relative;
+    z-index: 0;
+  }
+
+  .halo::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: -1;
+    width: min(150vw, 60rem);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(
+      closest-side,
+      var(--breathe-glow),
+      transparent
+    );
+    opacity: calc(0.35 + var(--breath) * 0.55);
+    transform: translate(-50%, -50%) scale(calc(0.6 + var(--breath) * 0.5));
+    pointer-events: none;
+  }
+
+  .title {
+    margin-bottom: 2rem;
+    font-size: 0.9375rem;
+    font-stretch: 112%;
+    font-weight: 600;
+    color: var(--breathe-muted);
+  }
+
+  .box {
+    width: min(70vw, 19rem);
+    overflow: visible;
+  }
+
+  .frame {
+    fill: none;
+    stroke: var(--breathe-rule);
+    stroke-width: 1px;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .track {
+    fill: none;
+  }
+
+  /* The trail fades out behind the tracer through a conic mask centered on
+     the square, rotated each frame to start at the tracer. */
+  .trail {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    --tail: 0deg;
+    --fade: 300deg;
+    --mask: conic-gradient(
+      from var(--tail),
+      transparent,
+      transparent calc(360deg - var(--fade)),
+      black 360deg
+    );
+    -webkit-mask-image: var(--mask);
+    mask-image: var(--mask);
+  }
+
+  .trail path {
+    fill: none;
+    stroke: var(--breathe-ink);
+    stroke-width: 0.6;
+  }
+
+  .lung {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .tracer {
+    fill: var(--breathe-ink);
+  }
+
+  /* Positioned so they paint above the halo's glow. */
+  .readout,
+  .toggle,
+  .durations {
+    position: relative;
+  }
+
+  .readout {
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 0.25rem;
+    height: 7.5rem;
+    margin-top: 2rem;
+    text-align: center;
+  }
+
+  .phase {
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    font-stretch: 112%;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .breathe:not(.is-running) .phase {
+    padding-top: 0.5rem;
+    font-size: 1rem;
+    font-stretch: 100%;
+    font-weight: 400;
+    color: var(--breathe-muted);
+  }
+
+  .count {
+    font-size: 2.25rem;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    color: var(--breathe-muted);
+  }
+
+  .toggle {
+    min-width: 8rem;
+    height: 2.75rem;
+    padding: 0 1.5rem;
+    border-radius: 999px;
+    font-weight: 600;
+    color: var(--breathe-sky);
+    background: var(--breathe-ink);
+    transition: transform 120ms ease-out;
+  }
+
+  .toggle:active {
+    transform: scale(0.97);
+  }
+
+  .durations {
+    display: grid;
+    justify-items: center;
+    margin-top: 1.75rem;
+    border: 0;
+    transition: opacity 200ms ease-out;
+  }
+
+  .durations:disabled {
+    opacity: 0.4;
+  }
+
+  legend {
+    margin: 0 auto 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--breathe-muted);
+  }
+
+  .options {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .options label {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+  }
+
+  .options input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: inherit;
+  }
+
+  .options label:has(input:checked) {
+    box-shadow: inset 0 0 0 1px var(--breathe-ink);
+    font-weight: 600;
+  }
+
+  .toggle:focus-visible,
+  .options label:has(input:focus-visible) {
+    outline: 2px solid var(--breathe-ink);
+    outline-offset: 2px;
+  }
+
+  @media (hover: hover) {
+    .options label:hover {
+      background: var(--breathe-rule);
+    }
+  }
+</style>
+
+<script>
+  const PHASES = ["Breathe in", "Hold", "Breathe out", "Hold"];
+  // The track starts bottom-left and goes up, across, down, back.
+  const root = document.querySelector<HTMLElement>(".breathe")!;
+  const toggle = document.querySelector<HTMLButtonElement>("#toggle")!;
+  const durations = document.querySelector<HTMLFieldSetElement>("#durations")!;
+  const phaseText = document.querySelector<HTMLElement>("#phase")!;
+  const countText = document.querySelector<HTMLElement>("#count")!;
+  const track = document.querySelector<SVGPathElement>("#track")!;
+  const trail = document.querySelector<SVGPathElement>("#trail")!;
+  const trailLayer = trail.ownerSVGElement!;
+  const lung = document.querySelector<SVGRectElement>("#lung")!;
+  const tracer = document.querySelector<SVGCircleElement>("#tracer")!;
+
+  const length = track.getTotalLength();
+
+  let seconds = Number(
+    durations.querySelector<HTMLInputElement>("input:checked")!.value,
+  );
+  let startedAt = 0;
+  let raf = 0;
+  let lastPhase = -1;
+  let wakeLock: WakeLockSentinel | null = null;
+
+  const ease = (x: number) => x * x * (3 - 2 * x);
+  const idleText = () => `${seconds} seconds each: in, hold, out, hold`;
+
+  function drawTrail(point: DOMPoint, along: number, laps: number) {
+    // CSS conic angles start at the top and run clockwise, like the tracer.
+    const angle = (Math.atan2(point.x - 50, 50 - point.y) * 180) / Math.PI;
+    trailLayer.style.setProperty("--tail", `${angle}deg`);
+    // On the first lap, only draw what's been traced so far.
+    trail.style.strokeDasharray =
+      laps < 1 ? `${along * length} ${length}` : "none";
+    trail.style.visibility = laps > 0 ? "visible" : "hidden";
+  }
+
+  function draw(phase: number, progress: number, laps: number) {
+    const along = (phase + progress) / 4;
+    const point = track.getPointAtLength(along * length);
+    tracer.setAttribute("cx", String(point.x));
+    tracer.setAttribute("cy", String(point.y));
+    drawTrail(point, along, laps);
+
+    const e = ease(progress);
+    const breath = [e, 1, 1 - e, 0][phase];
+    lung.style.transform = `scale(${0.4 + 0.6 * breath})`;
+    root.style.setProperty("--breath", String(breath));
+  }
+
+  function frame(now: number) {
+    raf = requestAnimationFrame(frame);
+    const elapsed = (now - startedAt) / 1000;
+    const phase = Math.floor(elapsed / seconds) % 4;
+    const progress = (elapsed % seconds) / seconds;
+
+    draw(phase, progress, elapsed / (seconds * 4));
+    countText.textContent = String(Math.ceil(seconds - (elapsed % seconds)));
+    if (phase !== lastPhase) {
+      phaseText.textContent = PHASES[phase];
+      lastPhase = phase;
+    }
+  }
+
+  async function start() {
+    root.classList.add("is-running");
+    toggle.textContent = "Stop";
+    durations.disabled = true;
+    startedAt = performance.now();
+    lastPhase = -1;
+    raf = requestAnimationFrame(frame);
+    wakeLock = await navigator.wakeLock?.request("screen").catch(() => null);
+  }
+
+  function stop() {
+    cancelAnimationFrame(raf);
+    raf = 0;
+    root.classList.remove("is-running");
+    toggle.textContent = "Start";
+    durations.disabled = false;
+    phaseText.textContent = idleText();
+    countText.textContent = "";
+    draw(0, 0, 0);
+    wakeLock?.release();
+    wakeLock = null;
+  }
+
+  toggle.addEventListener("click", () => (raf ? stop() : start()));
+
+  durations.addEventListener("change", (e) => {
+    seconds = Number((e.target as HTMLInputElement).value);
+    phaseText.textContent = idleText();
+  });
+
+  draw(0, 0, 0);
+
+  // The wake lock is dropped when the tab is hidden; take it back on return.
+  document.addEventListener("visibilitychange", async () => {
+    if (raf && !document.hidden) {
+      wakeLock = await navigator.wakeLock?.request("screen").catch(() => null);
+    }
+  });
+</script>
