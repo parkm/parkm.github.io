@@ -1,13 +1,18 @@
 ---
 import Tailwind from "./Tailwind.astro";
+import { isIndexed } from "@/lib/content";
 
 interface Props {
 	title: string;
 	description: string;
 	disableZoom?: boolean;
+	/** Browser UI color. Defaults to following the light/dark theme. */
+	themeColor?: string;
 }
 
-const { title, description, disableZoom = false } = Astro.props;
+const { title, description, disableZoom = false, themeColor } = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site);
 
 const viewportContent = disableZoom
 	? "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
@@ -39,8 +44,25 @@ const viewportContent = disableZoom
 		<meta name="description" content={description} />
 		<meta name="viewport" content={viewportContent} />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<link rel="canonical" href={canonical} />
+		{!isIndexed(Astro.url.pathname) && <meta name="robots" content="noindex" />}
+		{themeColor ? (
+			<meta name="theme-color" content={themeColor} />
+		) : (
+			<>
+				<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+				<meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)" />
+			</>
+		)}
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={canonical} />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
+		<slot name="head" />
 	</head>
 	<body>
 		<slot />

@@ -22,6 +22,7 @@ Personal portfolio/creative experimentation site at [parkermiller.net](https://p
 **Stack:** Astro 6 (file-based routing) + React 19 (interactive islands) + TypeScript + Tailwind CSS 4
 
 **Key libraries:**
+
 - **Tone.js** — Web Audio / synthesizer functionality
 - **Tonal** — Music theory helpers (notes, pitches)
 - **PixiJS + pixi-filters** — WebGL 2D graphics and visual effects
@@ -33,13 +34,17 @@ Personal portfolio/creative experimentation site at [parkermiller.net](https://p
 **Path alias:** `@/*` maps to `src/*`
 
 **Layouts:**
+
 - `src/layouts/Layout.astro` — Root HTML shell with dark mode detection
 - `src/layouts/Tailwind.astro` — Global Tailwind import + design tokens (OKLCH color space, dark mode variants)
 
 **`src/lib/utils/`:**
+
 - `cn.ts` — `clsx` + `tailwind-merge` utility
 - `audioInit.ts` — iOS Web Audio API unlock (must be triggered by user gesture before any audio)
 - `index.ts` — Re-exports + `clamp` utility
+
+**`src/content/`** holds the site's copy and indexing list (`profile.md`, `llms.txt`, `facts.ts`, `indexing.ts`). Don't edit it unless asked.
 
 **Pages** (`src/pages/`) map directly to routes. Interactive pages use React components loaded as Astro islands with `client:*` directives.
 

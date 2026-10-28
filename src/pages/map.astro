@@ -4,96 +4,10 @@ export const description = "All pages on the site";
 export const icon = MapIcon;
 
 import Layout from "src/layouts/Layout.astro";
-import {
-  Blocks,
-  ChevronLeft,
-  File,
-  Map as MapIcon,
-  PartyPopper,
-  Search,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronLeft, Map as MapIcon, Search } from "lucide-react";
+import { CATEGORY_HUE, pages, pagesByCategory } from "@/lib/pages";
 
-const modules = import.meta.glob("/src/pages/**/*.astro", { eager: true });
-
-type PageModule = {
-  title?: string;
-  description?: string;
-  icon?: LucideIcon;
-  category?: string;
-};
-
-const CATEGORY_ORDER = ["Tools", "Entertainment", "Other"];
-
-// One hue per category, used for its heading, icons and row hover.
-const CATEGORY_HUE: Record<string, number> = {
-  Tools: 250,
-  Entertainment: 35,
-  Other: 160,
-};
-
-const allLinks = [
-  ...Object.keys(modules)
-    .filter(
-      (filePath) =>
-        filePath !== "/src/pages/map.astro" &&
-        (!/\/index\.astro$/.test(filePath) ||
-          filePath === "/src/pages/index.astro")
-    )
-    .map((filePath) => {
-      const module = modules[filePath] as PageModule;
-      const href =
-        filePath
-          .replace("/src/pages", "")
-          .replace(/index\.astro$/, "")
-          .replace(/\.astro$/, "")
-          .replace(/\/$/, "") || "/";
-      const isRoot = filePath === "/src/pages/index.astro";
-
-      const fallbackTitle = isRoot
-        ? "Root"
-        : (filePath
-            .split("/")
-            .pop()
-            ?.replace(".astro", "")
-            .replace(/-/g, " ")
-            .replace(/\b\w/g, (c) => c.toUpperCase()) ?? "");
-
-      return {
-        href,
-        title: isRoot ? "Home" : (module.title || fallbackTitle),
-        description: isRoot ? undefined : module.description,
-        icon: module.icon ?? File,
-        category: module.category ?? "Other",
-        isRoot,
-      };
-    }),
-  {
-    href: "/partygif",
-    title: "PartyGif",
-    description: "Create party gifs client-side",
-    icon: PartyPopper,
-    category: "Tools",
-    isRoot: false,
-  },
-  {
-    href: "/tetris/",
-    title: "Tetris",
-    description: "Tetris with tuned DAS/ARR handling and cheese mode",
-    icon: Blocks,
-    category: "Entertainment",
-    isRoot: false,
-  },
-];
-
-const grouped = CATEGORY_ORDER.map((cat) => ({
-  category: cat,
-  links: allLinks
-    .filter((l) => !l.isRoot && l.category === cat)
-    .toSorted((a, b) => a.title.localeCompare(b.title)),
-}));
-
-const pageCount = grouped.reduce((n, g) => n + g.links.length, 0);
+const pageCount = pages.length;
 ---
 
 <Layout title={title} description={description}>
@@ -134,16 +48,16 @@ const pageCount = grouped.reduce((n, g) => n + g.links.length, 0);
 
     <main>
       {
-        grouped.map(({ category, links }) => (
+        pagesByCategory.map(({ category, pages }) => (
           <section
-            data-map-section
+            data-page-section
             class="mt-8"
             style={`--hue: ${CATEGORY_HUE[category]}`}
           >
             <h2 class="tint mb-1 text-sm font-semibold">{category}</h2>
             <ul>
-              {links.map(({ href, title, description, icon: Icon }) => (
-                <li data-map-item>
+              {pages.map(({ href, title, description, icon: Icon }) => (
+                <li>
                   <a
                     href={href}
                     data-search={`${title} ${description ?? ""} ${href}`.toLowerCase()}
@@ -279,41 +193,12 @@ const pageCount = grouped.reduce((n, g) => n + g.links.length, 0);
 </style>
 
 <script>
+  import { setupPageFilter } from "@/lib/utils/pageFilter";
+
   const input = document.querySelector<HTMLInputElement>("#map-filter")!;
-  const empty = document.querySelector<HTMLElement>("#map-empty")!;
-  const sections = [
-    ...document.querySelectorAll<HTMLElement>("[data-map-section]"),
-  ];
-  const links = [...document.querySelectorAll<HTMLAnchorElement>(".row")];
-
-  const filter = () => {
-    const query = input.value.trim().toLowerCase();
-    for (const section of sections) {
-      let count = 0;
-      for (const link of section.querySelectorAll<HTMLAnchorElement>(".row")) {
-        const match = link.dataset.search!.includes(query);
-        link.parentElement!.hidden = !match;
-        if (match) count++;
-      }
-      section.hidden = count === 0;
-    }
-    empty.hidden = links.some((link) => !link.parentElement!.hidden);
-  };
-
-  input.addEventListener("input", filter);
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      links.find((link) => !link.parentElement!.hidden)?.click();
-    } else if (e.key === "Escape") {
-      input.value = "";
-      filter();
-    }
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "/" && document.activeElement !== input) {
-      e.preventDefault();
-      input.focus();
-    }
+  setupPageFilter({
+    input,
+    empty: document.querySelector<HTMLElement>("#map-empty")!,
   });
   if (matchMedia("(pointer: fine)").matches) input.focus();
 </script>

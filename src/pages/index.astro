@@ -1,435 +1,353 @@
 ---
-export const title = "Parker Miller - Frontend Developer";
-export const description = "Personal website of Parker Miller";
-export const icon = House;
-
-import { House } from "lucide-react";
+import "@fontsource-variable/archivo/wdth.css";
 import Layout from "../layouts/Layout.astro";
-import ProjectCard from "../components/ProjectCard.astro";
 import CanopyLogo from "../components/CanopyLogo.astro";
 import InstructureLogo from "../components/InstructureLogo.astro";
-import SettingsMenu from "../components/SettingsMenu.astro";
-import GithubIcon from "../components/GithubIcon.astro";
-import LinkedinIcon from "../components/LinkedinIcon.astro";
-import GameOfLife from "../components/GameOfLife/GameOfLife.astro";
-import SnakeCrt from "../components/SnakeCrt/SnakeCrt.astro";
+import * as profile from "@/content/profile.md";
+import { facts, homeJsonLd, toScriptJson } from "@/lib/content";
 
-const personalInfo = {
-  name: "Parker Miller",
-  description:
-    "I'm a frontend developer passionate about creating robust web applications with codebases that emphasize readability, maintainability, and extensibility. I also like to dabble in music production and game development.",
-  github: "https://github.com/parkm",
-  linkedin: "https://linkedin.com/in/parker-miller-381ab3196/",
+// Each `### Company` section in profile.md becomes a work row.
+const LOGOS: Record<string, typeof CanopyLogo> = {
+  Canopy: CanopyLogo,
+  Instructure: InstructureLogo,
 };
 
-const projects: {
-  title: string;
-  description: string;
-  image: string;
-  link: string;
-}[] = [
-  //{
-  //  title: "Project 1",
-  //  description: "Project 1 description",
-  //  image: "/path/to/project1-image.jpg",
-  //  link: "https://project1-link.com",
-  //},
-];
+const html = await profile.compiledContent();
+const [intro, ...sections] = html.split(/(?=<h3[\s>])/);
+let outro = "";
+const jobs = sections.map((section, i) => {
+  const [, heading, rest] = section.match(
+    /^<h3[^>]*>([\s\S]*?)<\/h3>([\s\S]*)$/,
+  )!;
+  const [body, after = ""] =
+    i === sections.length - 1 ? rest.split(/(?=<h2[\s>])/) : [rest];
+  outro = after;
+  const name = heading.replace(/<[^>]+>/g, "").trim();
+  return { name, Logo: LOGOS[name], body };
+});
 ---
 
-<Layout title={title} description={description}>
-  <header class="hero-section">
-    <div id="gameContainer">
-      <div id="gameOfLifeContainer" class="game-canvas">
-        <GameOfLife />
-      </div>
-      <div id="snakeCrtContainer" class="game-canvas hidden">
-        <SnakeCrt />
-      </div>
-    </div>
-    <div class="hero-backdrop">
-      <div class="hero-content">
-        <div class="hero-header">
-          <div>
-            <h1>
-              <a href={personalInfo.github} class="name-link"
-                >{personalInfo.name}</a
-              >
-            </h1>
-            <a href={personalInfo.linkedin} class="job-title-link"
-              >Frontend Developer</a
-            >
-          </div>
-          <div class="flex items-center gap-4">
-            <GithubIcon href={personalInfo.github} width={32} height={32} />
-            <LinkedinIcon href={personalInfo.linkedin} width={32} height={32} />
-          </div>
-        </div>
-      </div>
-    </div>
-    <SettingsMenu />
-  </header>
+<Layout title={facts.title} description={facts.description} themeColor="#f3f5f2">
+  <script
+    is:inline
+    slot="head"
+    type="application/ld+json"
+    set:html={toScriptJson(homeJsonLd())}
+  />
+  <link slot="head" rel="alternate" type="text/markdown" href="/index.md" />
 
-  <main>
-    <section aria-labelledby="about-me" class="fade-in-section">
-      <h2 id="about-me">About Me</h2>
-      <div class="intro-card">
-        <p>{personalInfo.description}</p>
-        <nav aria-label="Social links">
-          <ul class="social-links">
-            <li>
-              <GithubIcon href={personalInfo.github} width={24} height={24} />
-            </li>
-            <li>
-              <LinkedinIcon
-                href={personalInfo.linkedin}
-                width={24}
-                height={24}
-              />
-            </li>
-          </ul>
-        </nav>
-      </div>
-    </section>
+  <canvas id="light" class="light" aria-hidden="true"></canvas>
 
-    <section aria-labelledby="work-experience" class="fade-in-section">
-      <h2 id="work-experience">Work Experience</h2>
-      <div class="flex flex-col gap-16 mt-8 mb-24">
-        <section aria-labelledby="canopy" class="flex flex-col gap-8">
-          <CanopyLogo fill="white" height="4rem" />
-          <div class="time-period">Aug 2021 - Present</div>
-          <p>
-            Canopy is an accounting practice management platform built on a
-            micro-frontend architecture with 50+ independently deployed React
-            applications. As a staff engineer on the platform team, I architect
-            and drive frontend infrastructure initiatives that
-            affect every service in the ecosystem.
-          </p>
-          <p>
-            Led the adoption of @tanstack/react-query across the platform,
-            designing the shared caching architecture, type-safe query key
-            factories, and cross-service invalidation patterns that unified
-            server state management across all micro-frontends. Drove the
-            migration of 4,000+ Enzyme tests to React Testing Library across all
-            repositories, directly unblocking the upgrade to React 18, and built
-            a shared testing utility library and authored testing standards
-            adopted org-wide. Previously delivered core product features
-            including CRM, email and calendar integrations, and a real-time
-            comment feed.
-          </p>
-        </section>
-      </div>
-      <section aria-labelledby="instructure" class="flex flex-col gap-8">
-        <InstructureLogo height="4rem" />
-        <div class="time-period">Jul 2016 - Jul 2021</div>
-        <p>
-          The company behind the Canvas online learning management system. Here
-          I worked in professional services creating and maintaining numerous
-          custom integrations for the Canvas LMS. I worked fullstack using Ruby
-          on Rails, PostgreSQL, and React.
-        </p>
-      </section>
-      <section aria-labelledby="personal-projects" class="project-grid">
-        <h3 id="personal-projects" class="sr-only">Personal Projects</h3>
-        {
-          projects.map((project) => (
-            <ProjectCard
-              title={project.title}
-              description={project.description}
-              image={project.image}
-              link={project.link}
-            />
-          ))
-        }
-      </section>
-    </section>
+  <a class="map-link" href="/map" aria-label="Site map">
+    <svg viewBox="0 0 10 10" width="12" height="12" aria-hidden="true">
+      {
+        [1, 5, 9].flatMap((y) =>
+          [1, 5, 9].map((x) => <circle cx={x} cy={y} r="1" />),
+        )
+      }
+    </svg>
+  </a>
+
+  <main class="page">
+    <div class="intro" set:html={intro} />
+
+    {
+      jobs.length > 0 && (
+        <ol class="jobs" role="list">
+          {jobs.map(({ name, Logo, body }) => (
+            <li class="job">
+              <h3 class="job-name">
+                {Logo ? (
+                  <>
+                    <Logo class="logo" aria-hidden="true" />
+                    <span class="sr-only">{name}</span>
+                  </>
+                ) : (
+                  name
+                )}
+              </h3>
+              <div class="job-body" set:html={body} />
+            </li>
+          ))}
+        </ol>
+      )
+    }
+
+    {outro && <div class="outro" set:html={outro} />}
   </main>
+
+  <footer class="footer">
+    <span>© {new Date().getFullYear()} {facts.name}</span>
+  </footer>
 </Layout>
-<footer class="flex justify-between items-center">
-  <span>© {new Date().getFullYear()} Parker Miller</span>
-  <a
-    href="/map"
-    class="text-sm hover:text-white transition-colors hover:underline"
-    >Site Map</a
-  >
-</footer>
 
 <style>
-  :root {
-    --home-background: #13151a;
-    --home-accent: 136, 58, 234;
-    --home-accent-light: 224, 204, 250;
-    --home-accent-dark: 49, 10, 101;
-    --home-border-color: #464352;
-    --home-p-text-color: #e5e5e5;
-    --home-accent-gradient: linear-gradient(
-      45deg,
-      rgb(var(--home-accent)),
-      rgb(var(--home-accent-light)) 30%,
-      white 60%
-    );
+  :global(html) {
+    --home-paper: oklch(0.966 0.006 150);
+    --home-ink: oklch(0.21 0.016 160);
+    --home-muted: oklch(0.47 0.014 160);
+    --home-rule: oklch(0.21 0.016 160 / 0.12);
+    background: var(--home-paper);
+    color: var(--home-ink);
+    font-family: "Archivo Variable", system-ui, sans-serif;
+    font-stretch: 100%;
+    -webkit-font-smoothing: antialiased;
   }
 
-  body {
-    background: var(--home-background);
-  }
-  p {
-    font-weight: 200;
-    color: var(--home-p-text-color);
-  }
-
-  .hero-section {
-    height: 100svh;
-    position: sticky;
-    top: calc(-100svh + 6rem);
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    color: white;
-    border-bottom: 1px solid var(--home-border-color);
+  :global(html.dark) {
+    --home-paper: oklch(0.19 0.012 240);
+    --home-ink: oklch(0.92 0.008 220);
+    --home-muted: oklch(0.68 0.012 220);
+    --home-rule: oklch(0.92 0.008 220 / 0.12);
+    color-scheme: dark;
   }
 
-  #gameContainer {
-    position: absolute;
-    top: 0;
-    left: 0;
+  :global(body) {
+    background: var(--home-paper);
+    color: var(--home-ink);
+  }
+
+  /* Multiply darkens the paper in light mode; screen lightens it in dark mode. */
+  .light {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
     width: 100%;
     height: 100%;
-    z-index: 10;
-  }
-
-  .game-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 1;
-    transition: opacity 0.3s ease;
-  }
-
-  .game-canvas.hidden {
+    pointer-events: none;
+    mix-blend-mode: multiply;
     opacity: 0;
-    pointer-events: none;
+    transition: opacity 1.2s ease-out;
   }
 
-  #gameOfLife,
-  #snakeCrt {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: black;
+  :global(html.dark) .light {
+    mix-blend-mode: screen;
   }
 
-  .hero-backdrop {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 20;
-    pointer-events: none;
+  .light:global(.is-live) {
+    opacity: 1;
   }
 
-  .hero-content {
-    position: relative;
-    z-index: 30;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    align-items: flex-start;
-    margin-bottom: 10rem;
-    height: 100%;
-    pointer-events: auto;
+  .page {
+    max-width: 68rem;
+    margin: 0 auto;
+    padding: clamp(4rem, 14vh, 9rem) 1.25rem 0;
   }
 
-  .hero-header {
-    display: flex;
-    justify-content: space-between;
+  @media (min-width: 640px) {
+    .page {
+      padding-inline: 2.5rem;
+    }
+  }
+
+  .intro :global(h1) {
+    font-size: clamp(3rem, 11vw, 8.5rem);
+    font-stretch: 118%;
+    font-weight: 760;
+    line-height: 0.92;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+
+  .intro :global(p) {
+    max-width: 34rem;
+    margin-top: 1.75rem;
+    font-size: clamp(1.125rem, 1.6vw, 1.3125rem);
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+
+  .intro :global(p + p) {
+    margin-top: 1rem;
+  }
+
+  .intro :global(h2),
+  .outro :global(h2) {
+    margin: clamp(5rem, 14vh, 8rem) 0 0;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--home-rule);
+    font-size: 0.9375rem;
+    font-stretch: 112%;
+    font-weight: 600;
+    color: var(--home-muted);
+  }
+
+  .page :global(a) {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.22em;
+    text-decoration-color: color-mix(in oklch, currentColor 35%, transparent);
+  }
+
+  /* Icons for profile links, keyed off the URL. */
+  .page :global(a[href*="github.com"]),
+  .page :global(a[href*="linkedin.com"]) {
+    display: inline-flex;
     align-items: center;
-    width: 100%;
-    padding: 1rem;
-    background: linear-gradient(
-      to top,
-      rgba(0, 0, 0, 0.8) 47%,
-      rgba(0, 0, 0, 0) 100%
-    );
+    gap: 0.4em;
   }
 
-  .hero-content h1 {
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
-    text-shadow: black 5px 5px;
+  .page :global(a[href*="github.com"])::before,
+  .page :global(a[href*="linkedin.com"])::before {
+    content: "";
+    width: 0.95em;
+    height: 0.95em;
+    background: currentColor;
+    mask: var(--icon) center / contain no-repeat;
   }
 
-  .hero-content p {
-    font-size: 1rem;
-    text-shadow: black 3px 3px;
+  .page :global(a[href*="github.com"]) {
+    --icon: url("/icons/github.svg");
   }
 
-  .name-link,
-  .job-title-link {
-    text-decoration: none;
-    color: inherit;
-    display: inline-block;
-    position: relative;
-    transition:
-      opacity 0.2s ease,
-      transform 0.2s ease;
+  .page :global(a[href*="linkedin.com"]) {
+    --icon: url("/icons/linkedin.svg");
   }
 
-  .name-link:hover,
-  .job-title-link:hover {
-    opacity: 0.85;
-    transform: translateY(-1px);
+  @media (hover: hover) {
+    .page :global(a:hover) {
+      text-decoration-color: currentColor;
+    }
   }
 
-  .hero-section {
-    box-shadow: black 1px 2px 20px 0px;
+  .page :global(a:focus-visible),
+  .map-link:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+    border-radius: 2px;
   }
 
-  main {
-    margin: auto;
-    margin-top: 4rem;
-    padding: 1rem;
-    width: 800px;
-    max-width: calc(100% - 2rem);
-    color: white;
-    font-size: 20px;
+  .jobs {
+    list-style: none;
+  }
+
+  .job {
+    display: grid;
+    gap: 1rem;
+    padding: 2.5rem 0;
+    border-bottom: 1px solid var(--home-rule);
+  }
+
+  @media (min-width: 860px) {
+    .job {
+      grid-template-columns: 18rem minmax(0, 40rem);
+      gap: 3rem;
+      padding: 3.5rem 0;
+    }
+  }
+
+  .job-name {
+    font-size: 1.25rem;
+    font-stretch: 112%;
+    font-weight: 650;
+  }
+
+  .job-name :global(.logo) {
+    display: block;
+    width: auto;
+    height: 1.75rem;
+    max-width: 100%;
+    filter: brightness(0);
+    opacity: 0.86;
+  }
+
+  :global(html.dark) .job-name :global(.logo) {
+    filter: brightness(0) invert(1);
+  }
+
+  .job-body {
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+
+  /* Role title, then its dates. */
+  .job-body :global(h4) {
+    margin-top: 2rem;
+    font-stretch: 108%;
+    font-weight: 600;
+  }
+
+  .job-body > :global(h4:first-child) {
+    margin-top: 0;
+  }
+
+  .job-body :global(h4 + p) {
+    margin: 0.125rem 0 0.75rem;
+    color: var(--home-muted);
+    font-size: 0.9375rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .job-body :global(h4 + p + p) {
+    margin-top: 0;
+  }
+
+  .job-body :global(p + p) {
+    margin-top: 0.875rem;
+  }
+
+  .outro :global(p) {
+    max-width: 40rem;
+    margin-top: 1rem;
     line-height: 1.6;
   }
 
-  h1 {
-    font-size: 4rem;
-    font-weight: 700;
-    line-height: 1;
-    text-align: center;
-    margin-bottom: 1rem;
-  }
-
-  h2 {
-    font-size: 3rem;
-    font-weight: 300;
-    margin-bottom: 1rem;
-    text-shadow: black 5px 5px 4px;
-    border-bottom: 1px solid var(--home-border-color);
-  }
-
-  footer {
-    min-height: 3rem;
-    background: rgba(var(--home-accent-light), 0.1);
-    border-top: 1px solid var(--home-border-color);
-    padding: 1rem;
-    color: #b5b5b5;
-    margin-top: 2rem;
-  }
-
-  .time-period {
-    border-left: 1px solid var(--home-border-color);
-    padding-left: 1.25rem;
-  }
-
-  .intro-card {
-    background: rgba(var(--home-accent-light), 0.1);
-    border: 1px solid var(--home-border-color);
-    border-radius: 8px;
-    margin-bottom: 2rem;
-    overflow: hidden;
-  }
-
-  .intro-card p {
-    padding: 1.5rem 1.5rem 0;
-  }
-
-  .social-links {
+  .footer {
     display: flex;
-    justify-content: center;
+    flex-wrap: wrap;
+    justify-content: space-between;
     gap: 1rem;
-    list-style: none;
-    padding: 1rem 0;
-    margin-top: 1.5rem;
-    background: rgb(0 0 0 / 23%);
-    border-top: 1px solid var(--home-border-color);
+    max-width: 68rem;
+    margin: 0 auto;
+    padding: 4rem 1.25rem 2.5rem;
+    color: var(--home-muted);
+    font-size: 0.875rem;
   }
 
-  .social-links li {
-    transition: transform 0.2s ease;
+  @media (min-width: 640px) {
+    .footer {
+      padding-inline: 2.5rem;
+    }
   }
 
-  .social-links li:hover {
-    transform: translateY(-2px);
-  }
-
-  .project-grid {
+  .map-link {
+    position: fixed;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 10;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    fill: currentColor;
+    opacity: 0.3;
+  }
+
+  .map-link:hover,
+  .map-link:focus-visible {
+    opacity: 1;
   }
 
   .sr-only {
     position: absolute;
     width: 1px;
     height: 1px;
-    padding: 0;
     margin: -1px;
     overflow: hidden;
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
-    border-width: 0;
   }
 
-  .fade-in-section {
-    opacity: 0;
-    transform: translateY(20px);
-    transition:
-      opacity 0.6s ease-out,
-      transform 0.6s ease-out;
-  }
-
-  .fade-in-section.is-visible {
-    opacity: 1;
-    transform: translateY(0);
+  @media (forced-colors: active) {
+    .light {
+      display: none;
+    }
   }
 </style>
 
 <script>
-  const observer = new IntersectionObserver(handleIntersection, {
-    root: null,
-    rootMargin: "0px",
-    threshold: 0.1,
-  });
+  import { startDappleLight } from "@/components/Dapple/dappleLight";
 
-  const sections = document.querySelectorAll(".fade-in-section");
-  sections.forEach((section) => observer.observe(section));
-
-  function handleIntersection(
-    entries: IntersectionObserverEntry[],
-    observer: IntersectionObserver,
-  ) {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add("is-visible");
-        observer.unobserve(entry.target);
-      }
-    });
-  }
-
-  const gameOfLifeContainer = document.getElementById("gameOfLifeContainer");
-  const snakeCrtContainer = document.getElementById("snakeCrtContainer");
-
-  window.addEventListener("gameModeChange", ((event: CustomEvent) => {
-    const mode = event.detail;
-
-    if (mode === "life") {
-      gameOfLifeContainer?.classList.remove("hidden");
-      snakeCrtContainer?.classList.add("hidden");
-    } else if (mode === "snake") {
-      gameOfLifeContainer?.classList.add("hidden");
-      snakeCrtContainer?.classList.remove("hidden");
-    }
-  }) as EventListener);
+  startDappleLight(document.querySelector<HTMLCanvasElement>("#light")!);
 </script>
