@@ -1,0 +1,14 @@
+---
+export const title = "DAW";
+export const description = "A digital audio workstation";
+export const icon = Drum;
+export const category = "Tools";
+
+import { Drum } from "lucide-react";
+import Layout from "../layouts/Layout.astro";
+import { Daw as DawComponent } from "../components/Daw/Daw.tsx";
+---
+
+<Layout title={title} description={description} themeColor="#27272a" disableZoom>
+  <DawComponent client:only="react" />
+</Layout>

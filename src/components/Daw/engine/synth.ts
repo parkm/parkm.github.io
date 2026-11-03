@@ -1,0 +1,673 @@
+import type { Device, SynthDevice } from "../model/types";
+import type { DeviceEnv, DeviceInstance } from "./devices";
+import {
+  DRIVE_CURVE,
+  DRIVE_RANGE,
+  gain,
+  ms,
+  noise,
+  setParam,
+  SILENT,
+  velocityGain,
+} from "./dsp";
+import { choice, resolveParams, type ParamDef } from "./params";
+
+/**
+ * Subtractive polysynth in the spirit of Ableton's Analog: three oscillators
+ * with unison, noise, a 12/24 dB filter, three envelopes, two LFOs, and a
+ * modulation matrix. Each note builds a one-shot voice graph.
+ *
+ * Envelopes are split across gain stages that multiply (attack/decay/sustain
+ * × release × choke), so a release can be scheduled at any time, even
+ * mid-attack and ahead of time, without cancelling automation. That avoids
+ * needing cancelAndHoldAtTime (missing in Firefox).
+ *
+ * Cutoff, resonance and the LFOs are shared sources connected into every
+ * voice, so turning those knobs moves held notes too.
+ */
+
+const WAVES = ["Sine", "Triangle", "Saw", "Square", "Pulse"] as const;
+const WAVE_TYPES: OscillatorType[] = ["sine", "triangle", "sawtooth", "square"];
+const PULSE = 4;
+const FILTER_TYPES = ["Low-pass", "High-pass", "Band-pass"] as const;
+const FILTER_NODE_TYPES: BiquadFilterType[] = [
+  "lowpass",
+  "highpass",
+  "bandpass",
+];
+const LFO_WAVES = ["Sine", "Triangle", "Saw", "Square"] as const;
+const LFO_DIVISIONS = [
+  "4 bars",
+  "2 bars",
+  "1 bar",
+  "1/2",
+  "1/4",
+  "1/8",
+  "1/16",
+  "1/4T",
+  "1/8T",
+] as const;
+const LFO_BEATS = [16, 8, 4, 2, 1, 0.5, 0.25, 2 / 3, 1 / 3];
+
+export const MOD_SOURCES = [
+  "Off",
+  "LFO 1",
+  "LFO 2",
+  "Mod env",
+  "Filter env",
+  "Velocity",
+  "Key",
+] as const;
+export const MOD_DESTINATIONS = [
+  "Pitch",
+  "Osc 1 pitch",
+  "Osc 2 pitch",
+  "Osc 3 pitch",
+  "Cutoff",
+  "Resonance",
+  "Amp",
+  "Pan",
+  "Osc 1 level",
+  "Osc 2 level",
+  "Osc 3 level",
+  "Noise",
+] as const;
+/** What 100% means for each destination, in the param's own units. */
+const DEST_SCALE = [1200, 2400, 2400, 2400, 6000, 20, 1, 1, 1, 1, 1, 0.5];
+export const MOD_SLOTS = 6;
+
+type Unit = ParamDef["unit"];
+const def = (
+  key: string,
+  label: string,
+  min: number,
+  max: number,
+  value: number,
+  unit: Unit,
+  group: string,
+  curve?: "exp",
+): ParamDef => ({ key, label, min, max, default: value, unit, group, curve });
+
+const oscParams = (
+  n: number,
+  wave: number,
+  level: number,
+  fine: number,
+  octave = 0,
+): ParamDef[] => {
+  const g = `Osc ${n}`;
+  return [
+    choice(`osc${n}Wave`, "Wave", WAVES, wave, g),
+    def(`osc${n}Pw`, "Width", 5, 95, 50, "%", g),
+    def(`osc${n}Octave`, "Octave", -3, 3, octave, undefined, g),
+    def(`osc${n}Semi`, "Semi", -12, 12, 0, "st", g),
+    def(`osc${n}Fine`, "Fine", -50, 50, fine, "ct", g),
+    def(`osc${n}Level`, "Level", 0, 100, level, "%", g),
+  ];
+};
+
+const envParams = (
+  prefix: string,
+  group: string,
+  a: number,
+  d: number,
+  s: number,
+  r: number,
+): ParamDef[] => {
+  const k = (name: string) =>
+    prefix ? `${prefix}${name}` : name.toLowerCase();
+  return [
+    def(k("Attack"), "Attack", 1, 10000, a, "ms", group, "exp"),
+    def(k("Decay"), "Decay", 1, 10000, d, "ms", group, "exp"),
+    def(k("Sustain"), "Sustain", 0, 100, s, "%", group),
+    def(k("Release"), "Release", 1, 10000, r, "ms", group, "exp"),
+  ];
+};
+
+const lfoParams = (n: number): ParamDef[] => {
+  const g = `LFO ${n}`;
+  return [
+    choice(`lfo${n}Wave`, "Wave", LFO_WAVES, 0, g),
+    choice(`lfo${n}Sync`, "Mode", ["Free", "Sync"], 1, g),
+    def(`lfo${n}Rate`, "Rate", 0.05, 30, 2, "Hz", g, "exp"),
+    choice(`lfo${n}Division`, "Division", LFO_DIVISIONS, 4, g),
+    def(`lfo${n}Fade`, "Fade in", 0, 3000, 0, "ms", g),
+  ];
+};
+
+const modParams = (n: number): ParamDef[] => [
+  choice(`mod${n}Src`, "Source", MOD_SOURCES, 0, "Modulation"),
+  choice(`mod${n}Dst`, "Target", MOD_DESTINATIONS, 4, "Modulation"),
+  def(`mod${n}Amt`, "Amount", -100, 100, 0, "%", "Modulation"),
+];
+
+export const SYNTH_PARAMS: ParamDef[] = [
+  ...oscParams(1, 2, 80, 0),
+  ...oscParams(2, 2, 60, 7),
+  ...oscParams(3, 0, 0, 0, -1),
+  def("noise", "Noise", 0, 100, 0, "%", "Mixer"),
+  def("unison", "Unison", 1, 7, 1, undefined, "Mixer"),
+  def("detune", "Detune", 0, 100, 15, "ct", "Mixer"),
+  def("spread", "Spread", 0, 100, 50, "%", "Mixer"),
+  choice("filterType", "Type", FILTER_TYPES, 0, "Filter"),
+  choice("slope", "Slope", ["12 dB", "24 dB"], 0, "Filter"),
+  def("cutoff", "Cutoff", 30, 18000, 1800, "Hz", "Filter", "exp"),
+  def("resonance", "Reso", 0, 100, 15, "%", "Filter"),
+  def("filterEnv", "Env", -48, 48, 24, "st", "Filter"),
+  def("keyTrack", "Key", 0, 100, 50, "%", "Filter"),
+  def("velFilter", "Vel", 0, 100, 30, "%", "Filter"),
+  ...envParams("f", "Filter env", 2, 350, 20, 300),
+  ...envParams("", "Amp env", 3, 600, 70, 250),
+  ...envParams("m", "Mod env", 1, 500, 0, 300),
+  ...lfoParams(1),
+  ...lfoParams(2),
+  ...Array.from({ length: MOD_SLOTS }, (_, i) => modParams(i + 1)).flat(),
+  def("voices", "Voices", 1, 16, 8, undefined, "Voice"),
+  def("glide", "Glide", 0, 1000, 0, "ms", "Voice"),
+  def("drive", "Drive", 0, 100, 0, "%", "Voice"),
+  def("volume", "Volume", -24, 6, 0, "dB", "Voice"),
+];
+
+const mod = (n: number, src: number, dst: number, amt: number) => ({
+  [`mod${n}Src`]: src,
+  [`mod${n}Dst`]: dst,
+  [`mod${n}Amt`]: amt,
+});
+
+export const SYNTH_PRESETS: Record<string, Record<string, number>> = {
+  Init: {},
+  Bass: {
+    osc1Wave: 2,
+    osc1Octave: -1,
+    osc2Wave: 3,
+    osc2Octave: -1,
+    osc2Fine: -5,
+    osc2Level: 45,
+    osc3Wave: 0,
+    osc3Octave: -2,
+    osc3Level: 40,
+    cutoff: 260,
+    resonance: 25,
+    filterEnv: 30,
+    fDecay: 220,
+    fSustain: 0,
+    attack: 1,
+    decay: 400,
+    sustain: 80,
+    release: 60,
+    voices: 1,
+    glide: 40,
+  },
+  Lead: {
+    osc1Wave: 2,
+    osc2Wave: 4,
+    osc2Pw: 30,
+    osc2Octave: 1,
+    osc2Fine: 4,
+    osc2Level: 35,
+    cutoff: 2400,
+    resonance: 30,
+    filterEnv: 18,
+    fDecay: 500,
+    fSustain: 40,
+    attack: 4,
+    sustain: 85,
+    release: 180,
+    voices: 1,
+    glide: 70,
+    ...mod(1, 1, 0, 2),
+    lfo1Sync: 0,
+    lfo1Rate: 5.5,
+  },
+  Pad: {
+    osc1Wave: 2,
+    osc2Wave: 2,
+    osc2Octave: 1,
+    osc2Level: 50,
+    unison: 3,
+    detune: 22,
+    spread: 80,
+    cutoff: 1100,
+    resonance: 10,
+    filterEnv: 12,
+    fAttack: 900,
+    fDecay: 2000,
+    fSustain: 60,
+    fRelease: 2500,
+    attack: 700,
+    decay: 1500,
+    sustain: 85,
+    release: 2200,
+    ...mod(1, 2, 4, 8),
+    lfo2Sync: 0,
+    lfo2Rate: 0.2,
+  },
+  Pluck: {
+    osc1Wave: 3,
+    osc2Wave: 2,
+    osc2Octave: 1,
+    osc2Level: 40,
+    cutoff: 500,
+    resonance: 35,
+    filterEnv: 40,
+    fDecay: 180,
+    fSustain: 0,
+    fRelease: 150,
+    attack: 1,
+    decay: 450,
+    sustain: 0,
+    release: 300,
+  },
+  Supersaw: {
+    osc1Wave: 2,
+    osc2Wave: 2,
+    osc2Octave: -1,
+    osc2Level: 45,
+    unison: 7,
+    detune: 35,
+    spread: 100,
+    cutoff: 5000,
+    resonance: 5,
+    filterEnv: 8,
+    attack: 5,
+    sustain: 90,
+    release: 400,
+    volume: -3,
+  },
+  Wobble: {
+    osc1Wave: 2,
+    osc1Octave: -1,
+    osc2Wave: 3,
+    osc2Octave: -1,
+    osc2Fine: -8,
+    osc2Level: 60,
+    osc3Wave: 0,
+    osc3Octave: -2,
+    osc3Level: 50,
+    slope: 1,
+    cutoff: 300,
+    resonance: 45,
+    filterEnv: 0,
+    voices: 1,
+    glide: 30,
+    attack: 2,
+    sustain: 100,
+    release: 80,
+    ...mod(1, 1, 4, 55),
+    lfo1Division: 5,
+  },
+};
+
+const midiHz = (pitch: number) => 440 * 2 ** ((pitch - 69) / 12);
+
+/** Voice filters sit at this frequency; the shared cutoff source detunes them to the real cutoff. */
+const REF_CUTOFF = 1000;
+const cutoffCents = (hz: number) => 1200 * Math.log2(hz / REF_CUTOFF);
+
+/** Low/high-pass Q is in dB in Web Audio (-3 is flat); band-pass Q is a plain quality factor. */
+const resonanceQ = (filterType: number, amount: number) =>
+  filterType === 2 ? 0.5 + amount * 15 : -3 + amount * 27;
+const flatQ = (filterType: number) => (filterType === 2 ? 0.7 : -3.01);
+
+// Pulse waves as PeriodicWaves (the browser band-limits them), cached by width.
+const pulses = new WeakMap<BaseAudioContext, Map<number, PeriodicWave>>();
+function pulseWave(ctx: BaseAudioContext, widthPercent: number) {
+  let cache = pulses.get(ctx);
+  if (!cache) pulses.set(ctx, (cache = new Map()));
+  const w = Math.round(widthPercent);
+  let wave = cache.get(w);
+  if (!wave) {
+    const n = 256;
+    const real = new Float32Array(n);
+    const imag = new Float32Array(n);
+    const d = w / 100;
+    for (let k = 1; k < n; k++) {
+      real[k] = (2 / (k * Math.PI)) * Math.sin(2 * Math.PI * k * d);
+      imag[k] = (2 / (k * Math.PI)) * (1 - Math.cos(2 * Math.PI * k * d));
+    }
+    wave = ctx.createPeriodicWave(real, imag);
+    cache.set(w, wave);
+  }
+  return wave;
+}
+
+type Voice = {
+  pitch: number;
+  start: number;
+  end: number;
+  releaseAt: number | null;
+  release: (time: number) => void;
+  choke: (time: number) => void;
+};
+
+type ModSlot = { src: number; dst: number; amount: number };
+
+const HELD = Number.POSITIVE_INFINITY;
+
+export function createSynth(
+  ctx: BaseAudioContext,
+  initial: SynthDevice,
+  initialEnv: DeviceEnv,
+): DeviceInstance {
+  // Voices → drive → volume. Drive is unity for quiet signals at 0 and
+  // adds at most ~6 dB at full, so it changes tone more than level.
+  const voiceBus = gain(ctx);
+  const shaper = ctx.createWaveShaper();
+  shaper.curve = DRIVE_CURVE;
+  shaper.oversample = "4x";
+  const drivePost = gain(ctx);
+  const output = gain(ctx);
+  voiceBus.connect(shaper).connect(drivePost).connect(output);
+  const cutoff = ctx.createConstantSource();
+  const resonance = ctx.createConstantSource();
+  const lfos = [ctx.createOscillator(), ctx.createOscillator()];
+  for (const node of [cutoff, resonance, ...lfos]) node.start();
+
+  let current: SynthDevice | null = null;
+  let bpm = 0;
+  let p = resolveParams(SYNTH_PARAMS, {});
+  let mods: ModSlot[] = [];
+  let voices: Voice[] = [];
+  let lastPitch: number | null = null;
+
+  function update(device: Device, env: DeviceEnv) {
+    if (device.type !== "synth" || (device === current && env.bpm === bpm))
+      return;
+    p = resolveParams(SYNTH_PARAMS, device.params);
+    setParam(cutoff.offset, cutoffCents(p.cutoff), ctx);
+    setParam(
+      resonance.offset,
+      resonanceQ(p.filterType, p.resonance / 100),
+      ctx,
+    );
+    setParam(output.gain, 10 ** (p.volume / 20), ctx);
+    const k = 0.05 + (p.drive / 100) * 5;
+    setParam(voiceBus.gain, k / DRIVE_RANGE, ctx);
+    setParam(
+      drivePost.gain,
+      (Math.tanh(DRIVE_RANGE) / Math.tanh(k)) * (Math.tanh(k) / k) ** 0.6,
+      ctx,
+    );
+    lfos.forEach((lfo, i) => {
+      const n = i + 1;
+      lfo.type = WAVE_TYPES[p[`lfo${n}Wave`]] ?? "sine";
+      const hz = p[`lfo${n}Sync`]
+        ? env.bpm / 60 / (LFO_BEATS[p[`lfo${n}Division`]] ?? 1)
+        : p[`lfo${n}Rate`];
+      setParam(lfo.frequency, hz, ctx);
+    });
+    mods = [];
+    for (let n = 1; n <= MOD_SLOTS; n++) {
+      const src = p[`mod${n}Src`];
+      const amount = p[`mod${n}Amt`] / 100;
+      if (src > 0 && amount !== 0)
+        mods.push({ src, dst: p[`mod${n}Dst`], amount });
+    }
+    current = device;
+    bpm = env.bpm;
+  }
+
+  function startVoice(pitch: number, velocity: number, t: number): Voice {
+    const sources: AudioScheduledSourceNode[] = [];
+    const cleanup: (() => void)[] = [];
+    // Shared sources keep a reference to anything they feed, so unhook them when the voice ends.
+    const connectShared = (from: AudioNode, to: AudioNode | AudioParam) => {
+      if (to instanceof AudioParam) {
+        from.connect(to);
+        cleanup.push(() => from.disconnect(to));
+      } else {
+        from.connect(to);
+        cleanup.push(() => from.disconnect(to));
+      }
+    };
+
+    // Output stages: amp env → amp mod → pan → release → choke.
+    const chokeNode = gain(ctx);
+    chokeNode.connect(voiceBus);
+    const rel = gain(ctx);
+    const panner = ctx.createStereoPanner();
+    const ampMod = gain(ctx);
+    const env = gain(ctx, 0);
+    env.connect(ampMod).connect(panner).connect(rel).connect(chokeNode);
+
+    // Filter: one or two biquads. Resonance goes on the last; the first stays flat.
+    const type = FILTER_NODE_TYPES[p.filterType] ?? "lowpass";
+    const filters = Array.from({ length: p.slope ? 2 : 1 }, () => {
+      const f = ctx.createBiquadFilter();
+      f.type = type;
+      f.frequency.value = REF_CUTOFF;
+      f.detune.value = (pitch - 60) * p.keyTrack;
+      connectShared(cutoff, f.detune);
+      return f;
+    });
+    const lastFilter = filters[filters.length - 1];
+    lastFilter.Q.value = 0;
+    connectShared(resonance, lastFilter.Q);
+    if (filters.length > 1) {
+      filters[0].Q.value = flatQ(p.filterType);
+      filters[0].connect(lastFilter);
+    }
+    lastFilter.connect(env);
+
+    // Oscillators, each stacked into unison copies spread across detune and pan.
+    const freq = midiHz(pitch);
+    const glideFrom =
+      p.glide > 0 && lastPitch !== null ? midiHz(lastPitch) : null;
+    const unison = Math.max(1, Math.round(p.unison));
+    const oscDetune: AudioParam[][] = [[], [], []];
+    const oscLevel: GainNode[] = [];
+    const allDetune: AudioParam[] = [];
+    for (let n = 1; n <= 3; n++) {
+      const level = gain(ctx, p[`osc${n}Level`] / 100 / Math.sqrt(unison));
+      oscLevel.push(level);
+      const modulated = mods.some((m) => m.dst === 7 + n);
+      if (p[`osc${n}Level`] <= 0 && !modulated) continue;
+      level.connect(filters[0]);
+      const wave = p[`osc${n}Wave`];
+      const base =
+        p[`osc${n}Octave`] * 1200 + p[`osc${n}Semi`] * 100 + p[`osc${n}Fine`];
+      for (let u = 0; u < unison; u++) {
+        const spreadPos = unison === 1 ? 0 : (u / (unison - 1)) * 2 - 1;
+        const o = ctx.createOscillator();
+        if (wave === PULSE) o.setPeriodicWave(pulseWave(ctx, p[`osc${n}Pw`]));
+        else o.type = WAVE_TYPES[wave] ?? "sawtooth";
+        o.detune.value = base + (spreadPos * p.detune) / 2;
+        if (glideFrom === null) {
+          o.frequency.value = freq;
+        } else {
+          o.frequency.setValueAtTime(glideFrom, t);
+          o.frequency.setTargetAtTime(freq, t, ms(p.glide) / 3);
+        }
+        if (unison > 1) {
+          const pan = ctx.createStereoPanner();
+          pan.pan.value = (spreadPos * p.spread) / 100;
+          o.connect(pan).connect(level);
+        } else {
+          o.connect(level);
+        }
+        o.start(t);
+        sources.push(o);
+        oscDetune[n - 1].push(o.detune);
+        allDetune.push(o.detune);
+      }
+    }
+    const noiseLevel = gain(ctx, (p.noise / 100) * 0.5);
+    if (p.noise > 0 || mods.some((m) => m.dst === 11)) {
+      const n = noise(ctx, t, t + 3600);
+      n.connect(noiseLevel).connect(filters[0]);
+      sources.push(n);
+    }
+
+    // Envelope sources (0..1), each with its own release stage.
+    const envSource = (prefix: string) => {
+      const k = (name: string) => `${prefix}${name}`;
+      const src = ctx.createConstantSource();
+      src.offset.setValueAtTime(0, t);
+      src.offset.linearRampToValueAtTime(1, t + ms(p[k("Attack")]));
+      src.offset.setTargetAtTime(
+        p[k("Sustain")] / 100,
+        t + ms(p[k("Attack")]),
+        ms(p[k("Decay")]) / 4,
+      );
+      const release = gain(ctx);
+      src.connect(release);
+      src.start(t);
+      sources.push(src);
+      return {
+        out: release,
+        release: release.gain,
+        length: ms(p[k("Release")]),
+      };
+    };
+    const fEnv = envSource("f");
+    const mEnv = mods.some((m) => m.src === 3) ? envSource("m") : null;
+
+    // Fixed routing: filter envelope → cutoff, scaled by velocity.
+    const velScale = 1 - (p.velFilter / 100) * (1 - velocity);
+    const fAmt = gain(ctx, p.filterEnv * 100 * velScale);
+    fEnv.out.connect(fAmt);
+    for (const f of filters) fAmt.connect(f.detune);
+
+    // Modulation matrix.
+    const destParams = (dst: number): AudioParam[] => {
+      if (dst === 0) return allDetune;
+      if (dst <= 3) return oscDetune[dst - 1];
+      if (dst === 4) return filters.map((f) => f.detune);
+      if (dst === 5) return [lastFilter.Q];
+      if (dst === 6) return [ampMod.gain];
+      if (dst === 7) return [panner.pan];
+      if (dst <= 10) return [oscLevel[dst - 8].gain];
+      return [noiseLevel.gain];
+    };
+    for (const m of mods) {
+      const targets = destParams(m.dst);
+      const scale = m.amount * (DEST_SCALE[m.dst] ?? 0);
+      if (m.src === 5 || m.src === 6) {
+        // Static per-note sources: velocity 0..1, key -1..1 across ±5 octaves from middle C.
+        const value =
+          m.src === 5 ? velocity : Math.max(-1, Math.min(1, (pitch - 60) / 60));
+        for (const param of targets) param.value += value * scale;
+        continue;
+      }
+      const route = gain(ctx, scale);
+      const fade = m.src === 1 || m.src === 2 ? ms(p[`lfo${m.src}Fade`]) : 0;
+      if (fade > 0) {
+        // Delayed vibrato: hold off for the first half, then fade in.
+        route.gain.setValueAtTime(0, t);
+        route.gain.setValueAtTime(0, t + fade / 2);
+        route.gain.linearRampToValueAtTime(scale, t + fade);
+      }
+      if (m.src === 1 || m.src === 2) connectShared(lfos[m.src - 1], route);
+      else (m.src === 3 && mEnv ? mEnv : fEnv).out.connect(route);
+      for (const param of targets) route.connect(param);
+    }
+
+    // Amp envelope: attack, then decay to sustain. Release lives on `rel`.
+    const peak = velocityGain(velocity) * 0.22;
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(peak, t + ms(p.attack));
+    env.gain.setTargetAtTime(
+      peak * (p.sustain / 100),
+      t + ms(p.attack),
+      ms(p.decay) / 4,
+    );
+
+    const releases: [AudioParam, number][] = [
+      [rel.gain, ms(p.release)],
+      [fEnv.release, fEnv.length],
+    ];
+    if (mEnv) releases.push([mEnv.release, mEnv.length]);
+    const stopAll = (time: number) => {
+      for (const s of sources) {
+        try {
+          s.stop(time);
+        } catch {
+          // Already stopped.
+        }
+      }
+    };
+    sources[0].onended = () => {
+      chokeNode.disconnect();
+      cleanup.forEach((fn) => fn());
+    };
+
+    const voice: Voice = {
+      pitch,
+      start: t,
+      end: HELD,
+      releaseAt: null,
+      release(time) {
+        if (voice.releaseAt !== null && voice.releaseAt <= time) return;
+        // Only this method automates the release stages, so cancelling can't cut an attack short.
+        for (const [param, length] of releases) {
+          param.cancelScheduledValues(time);
+          param.setValueAtTime(1, time);
+          param.exponentialRampToValueAtTime(SILENT, time + length);
+          param.setValueAtTime(0, time + length);
+        }
+        voice.releaseAt = time;
+        voice.end = time + ms(p.release);
+        stopAll(voice.end + 0.02);
+      },
+      choke(time) {
+        chokeNode.gain.setTargetAtTime(0, time, 0.003);
+        voice.end = Math.min(voice.end, time + 0.02);
+        stopAll(time + 0.03);
+      },
+    };
+    return voice;
+  }
+
+  function noteOn(
+    pitch: number,
+    velocity: number,
+    time: number,
+    duration?: number,
+  ) {
+    const now = ctx.currentTime;
+    voices = voices.filter((v) => v.end > now);
+    const sounding = voices.filter((v) => v.start <= time && v.end > time);
+    // Steal the oldest voices when over the limit.
+    for (let i = 0; i <= sounding.length - Math.max(1, p.voices); i++) {
+      sounding[i].choke(time);
+    }
+    const voice = startVoice(pitch, velocity, time);
+    voices.push(voice);
+    lastPitch = pitch;
+    if (duration !== undefined) voice.release(time + duration);
+  }
+
+  function noteOff(pitch: number, time: number) {
+    const held = voices.find((v) => v.pitch === pitch && v.releaseAt === null);
+    held?.release(Math.max(time, held.start));
+  }
+
+  function allNotesOff(time: number) {
+    for (const v of voices) if (v.releaseAt === null) v.release(time);
+  }
+
+  function cancel(time: number) {
+    for (const v of voices) {
+      if (v.start >= time) v.choke(time);
+      else if (v.end > time) v.release(time);
+    }
+  }
+
+  update(initial, initialEnv);
+
+  return {
+    input: null,
+    output,
+    noteOn,
+    noteOff,
+    allNotesOff,
+    cancel,
+    update,
+    dispose() {
+      for (const v of voices) v.choke(ctx.currentTime);
+      voices = [];
+      for (const node of [cutoff, resonance, ...lfos]) node.stop();
+      output.disconnect();
+    },
+  };
+}
