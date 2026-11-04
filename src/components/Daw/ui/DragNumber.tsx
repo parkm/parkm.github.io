@@ -13,6 +13,8 @@ type DragNumberProps = {
   onBegin?: () => void;
   onEnd?: () => void;
   label: string;
+  /** Extra tooltip text, before the drag/type hint. */
+  hint?: string;
   className?: string;
 };
 
@@ -28,6 +30,7 @@ export function DragNumber({
   onBegin,
   onEnd,
   label,
+  hint,
   className = "",
 }: DragNumberProps) {
   const [editing, setEditing] = useState(false);
@@ -87,7 +90,7 @@ export function DragNumber({
     <button
       type="button"
       aria-label={label}
-      title={`${label}: drag or click to type`}
+      title={`${hint ? `${hint}\n` : ""}${label}: drag or click to type`}
       className={`w-16 cursor-ns-resize touch-none rounded bg-zinc-950/60 px-1.5 py-0.5 text-center tabular-nums text-zinc-100 hover:bg-zinc-950 ${className}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

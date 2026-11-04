@@ -13,6 +13,8 @@ export type ParamDef = {
   options?: readonly string[];
   /** Heading the device UI groups this param under. */
   group?: string;
+  /** What it does to the sound, in a sentence or two. Shown as the control's tooltip and in exported settings. */
+  description?: string;
 };
 
 /** A param that picks one of `options` (value is the index). */
@@ -22,6 +24,7 @@ export const choice = (
   options: readonly string[],
   value = 0,
   group?: string,
+  description?: string,
 ): ParamDef => ({
   key,
   label,
@@ -31,6 +34,7 @@ export const choice = (
   step: 1,
   options,
   group,
+  description,
 });
 
 export const toNormal = (def: ParamDef, value: number) => {
@@ -46,9 +50,18 @@ export const fromNormal = (def: ParamDef, n: number) => {
     def.curve === "exp"
       ? def.min * (def.max / def.min) ** x
       : def.min + x * (def.max - def.min);
+  return snap(def, v);
+};
+
+/** Round to the param's step (whole numbers for linear params without one). */
+const snap = (def: ParamDef, v: number) => {
   const step = def.step ?? (def.curve === "exp" ? 0 : 1);
   return step ? Math.round(v / step) * step : v;
 };
+
+/** Clamp a typed or imported value into range and onto the param's step. */
+export const constrainParam = (def: ParamDef, value: number) =>
+  snap(def, Math.min(def.max, Math.max(def.min, value)));
 
 export function formatParam(def: ParamDef, value: number) {
   if (def.options) return def.options[Math.round(value)] ?? "";
@@ -73,3 +86,12 @@ export function resolveParams(
   for (const d of defs) out[d.key] = values[d.key] ?? d.default;
   return out;
 }
+
+/** Attach descriptions to defs by key. */
+export const describe = (
+  defs: ParamDef[],
+  descriptions: Record<string, string>,
+): ParamDef[] =>
+  defs.map((d) =>
+    descriptions[d.key] ? { ...d, description: descriptions[d.key] } : d,
+  );

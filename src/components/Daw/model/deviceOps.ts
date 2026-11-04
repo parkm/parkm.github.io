@@ -78,3 +78,11 @@ export const moveDevice = (
     [devices[i], devices[j]] = [devices[j], devices[i]];
     return { ...t, devices };
   });
+
+/** Swap a device for another (pasted settings), keeping its id and place in the chain. */
+export const replaceDevice = (
+  doc: Project,
+  trackId: Id,
+  deviceId: Id,
+  next: Device,
+) => updateDevice(doc, trackId, deviceId, () => ({ ...next, id: deviceId }));

@@ -88,6 +88,7 @@ export const Knob = memo(function Knob({
     <div
       className="flex flex-col items-center gap-0.5"
       style={{ width: size + 20 }}
+      title={def.description}
     >
       <span className="w-full truncate text-center text-[11px] text-zinc-400">
         {def.label}

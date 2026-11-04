@@ -1,6 +1,6 @@
 import type { Device, QuickSynthDevice, SynthDevice } from "../model/types";
 import type { DeviceEnv, DeviceInstance } from "./devices";
-import { choice, resolveParams, type ParamDef } from "./params";
+import { choice, describe, resolveParams, type ParamDef } from "./params";
 import { createSynth } from "./synth";
 
 /**
@@ -25,29 +25,65 @@ const WOBBLE_RATES = ["1 bar", "1/2", "1/4", "1/8", "1/16", "1/8T"] as const;
 /** Index into the full synth's LFO divisions for each wobble rate. */
 const WOBBLE_DIVISION = [2, 3, 4, 5, 6, 8];
 
-export const QUICK_PARAMS: ParamDef[] = [
-  p("shape", "Shape", 0, 100, 50, "Sound", "%"),
-  p("thickness", "Thickness", 0, 100, 20, "Sound", "%"),
-  p("sub", "Sub", 0, 100, 0, "Sound", "%"),
-  p("octave", "Octave", -2, 2, 0, "Sound"),
-  p("brightness", "Brightness", 0, 100, 60, "Tone", "%"),
-  p("resonance", "Resonance", 0, 100, 15, "Tone", "%"),
-  p("contour", "Contour", -100, 100, 30, "Tone", "%"),
-  p("attack", "Attack", 1, 5000, 3, "Envelope", "ms", "exp"),
-  p("decay", "Decay", 10, 5000, 500, "Envelope", "ms", "exp"),
-  p("sustain", "Sustain", 0, 100, 70, "Envelope", "%"),
-  p("release", "Release", 5, 8000, 250, "Envelope", "ms", "exp"),
-  p("vibrato", "Vibrato", 0, 100, 0, "Movement", "%"),
-  p("vibratoRate", "Rate", 2, 9, 5.5, "Movement", "Hz"),
-  p("vibratoDelay", "Delay", 0, 2000, 300, "Movement", "ms"),
-  p("wobble", "Wobble", 0, 100, 0, "Movement", "%"),
-  choice("wobbleRate", "Wobble rate", WOBBLE_RATES, 3, "Movement"),
-  choice("mono", "Mode", ["Poly", "Mono"], 0, "Play"),
-  p("glide", "Glide", 0, 500, 0, "Play", "ms"),
-  p("velocity", "Vel → tone", 0, 100, 40, "Play", "%"),
-  p("drive", "Drive", 0, 100, 0, "Play", "%"),
-  p("volume", "Volume", -24, 6, 0, "Play", "dB"),
-];
+export const QUICK_PARAMS: ParamDef[] = describe(
+  [
+    p("shape", "Shape", 0, 100, 50, "Sound", "%"),
+    p("thickness", "Thickness", 0, 100, 20, "Sound", "%"),
+    p("sub", "Sub", 0, 100, 0, "Sound", "%"),
+    p("octave", "Octave", -2, 2, 0, "Sound"),
+    p("brightness", "Brightness", 0, 100, 60, "Tone", "%"),
+    p("resonance", "Resonance", 0, 100, 15, "Tone", "%"),
+    p("contour", "Contour", -100, 100, 30, "Tone", "%"),
+    p("attack", "Attack", 1, 5000, 3, "Envelope", "ms", "exp"),
+    p("decay", "Decay", 10, 5000, 500, "Envelope", "ms", "exp"),
+    p("sustain", "Sustain", 0, 100, 70, "Envelope", "%"),
+    p("release", "Release", 5, 8000, 250, "Envelope", "ms", "exp"),
+    p("vibrato", "Vibrato", 0, 100, 0, "Movement", "%"),
+    { ...p("vibratoRate", "Rate", 2, 9, 5.5, "Movement", "Hz"), step: 0.1 },
+    p("vibratoDelay", "Delay", 0, 2000, 300, "Movement", "ms"),
+    p("wobble", "Wobble", 0, 100, 0, "Movement", "%"),
+    choice("wobbleRate", "Wobble rate", WOBBLE_RATES, 3, "Movement"),
+    choice("mono", "Mode", ["Poly", "Mono"], 0, "Play"),
+    p("glide", "Glide", 0, 500, 0, "Play", "ms"),
+    p("velocity", "Vel → tone", 0, 100, 40, "Play", "%"),
+    p("drive", "Drive", 0, 100, 0, "Play", "%"),
+    p("volume", "Volume", -24, 6, 0, "Play", "dB"),
+  ],
+  {
+    shape:
+      "Waveform morph: 0 is a pure sine, 50 a bright saw, 100 a hollow square. Values in between blend the neighbours.",
+    thickness:
+      "Stacks detuned copies spread across the stereo field. 0 is one clean voice; 100 is a wide, supersaw-like chorus.",
+    sub: "Adds a sine one octave below for weight.",
+    octave: "Shifts the whole sound by octaves.",
+    brightness:
+      "Filter cutoff. Low is dark and muffled; high is open and bright.",
+    resonance:
+      "Boosts frequencies at the cutoff. High values add a whistling, squelchy peak.",
+    contour:
+      "How much each note sweeps the filter, following the envelope. Positive starts bright and darkens (plucks); negative starts darker.",
+    attack:
+      "Fade-in time of each note (also shapes the Contour sweep). Long attacks swell, like pads.",
+    decay: "Time to fall from the peak to the Sustain level.",
+    sustain:
+      "Level held while a key is down. 0 makes plucked or percussive sounds.",
+    release: "Fade-out time after a key is released.",
+    vibrato: "Depth of pitch wobble. 100% is ±60 cents; 10 to 30% is subtle.",
+    vibratoRate: "Vibrato speed in cycles per second.",
+    vibratoDelay:
+      "Time before vibrato is fully in after a note starts, so held notes bloom into it.",
+    wobble:
+      "Depth of a tempo-synced filter sweep, like a wobble bass. Works best with lower Brightness.",
+    wobbleRate: "Wobble speed as a note length, synced to the tempo.",
+    mono: "Poly plays chords. Mono plays one note at a time, cutting off the last.",
+    glide:
+      "Time for the pitch to slide from the previous note to the next. 0 is off.",
+    velocity:
+      "How much playing harder brightens the Contour sweep. 0 makes every note the same tone.",
+    drive: "Saturation, for grit and warmth.",
+    volume: "The synth's output level.",
+  },
+);
 
 /** One-click envelope shapes; each writes several params. */
 export const ENVELOPE_PICKS: Record<string, Record<string, number>> = {

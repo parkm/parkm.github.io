@@ -9,7 +9,7 @@ import {
   mulberry32,
   setParam,
 } from "./dsp";
-import { choice, resolveParams, type ParamDef } from "./params";
+import { choice, describe, resolveParams, type ParamDef } from "./params";
 
 /**
  * Audio effects built from native nodes. Each one sits between a dry and a
@@ -39,7 +39,11 @@ const p = (
   curve?: "exp",
 ): ParamDef => ({ key, label, min, max, default: def, unit, curve });
 
-const MIX = p("mix", "Dry/Wet", 0, 100, 25, "%");
+const MIX: ParamDef = {
+  ...p("mix", "Dry/Wet", 0, 100, 25, "%"),
+  description:
+    "Balance of effect against the original. Up to 50% the original stays at full level, like a send.",
+};
 
 const FILTER_TYPES = ["Low-pass", "High-pass", "Band-pass", "Notch"] as const;
 const FILTER_NODE_TYPES: BiquadFilterType[] = [
@@ -51,11 +55,18 @@ const FILTER_NODE_TYPES: BiquadFilterType[] = [
 
 const filterFx: EffectDef = {
   label: "Filter",
-  params: [
-    choice("type", "Type", FILTER_TYPES),
-    p("frequency", "Freq", 30, 18000, 2000, "Hz", "exp"),
-    p("resonance", "Reso", 0, 100, 20, "%"),
-  ],
+  params: describe(
+    [
+      choice("type", "Type", FILTER_TYPES),
+      p("frequency", "Freq", 30, 18000, 2000, "Hz", "exp"),
+      p("resonance", "Reso", 0, 100, 20, "%"),
+    ],
+    {
+      type: "Low-pass removes highs, High-pass removes lows, Band-pass keeps a band around Freq, Notch cuts a narrow band.",
+      frequency: "Cutoff or centre frequency.",
+      resonance: "Boosts frequencies at Freq. High values whistle.",
+    },
+  ),
   build(ctx, input, output) {
     const f = ctx.createBiquadFilter();
     input.connect(f).connect(output);
@@ -76,11 +87,18 @@ const filterFx: EffectDef = {
 
 const driveFx: EffectDef = {
   label: "Drive",
-  params: [
-    p("drive", "Drive", 0, 100, 40, "%"),
-    p("tone", "Tone", 500, 18000, 9000, "Hz", "exp"),
-    p("output", "Output", -24, 6, 0, "dB"),
-  ],
+  params: describe(
+    [
+      p("drive", "Drive", 0, 100, 40, "%"),
+      p("tone", "Tone", 500, 18000, 9000, "Hz", "exp"),
+      p("output", "Output", -24, 6, 0, "dB"),
+    ],
+    {
+      drive: "Amount of saturation, from warm to fuzzy.",
+      tone: "Removes harsh highs after the distortion. Lower is darker.",
+      output: "Level after the drive.",
+    },
+  ),
   build(ctx, input, output) {
     const pre = gain(ctx);
     const shaper = ctx.createWaveShaper();
@@ -127,13 +145,21 @@ const DELAY_BEATS = [0.25, 1 / 3, 0.5, 0.75, 1, 1.5, 2, 4];
 const delayFx: EffectDef = {
   label: "Delay",
   mix: true,
-  params: [
-    choice("time", "Time", DELAY_TIMES, 3),
-    p("feedback", "Feedback", 0, 95, 40, "%"),
-    p("tone", "Tone", 500, 18000, 5000, "Hz", "exp"),
-    choice("pingPong", "Ping-pong", ["Off", "On"], 1),
-    MIX,
-  ],
+  params: describe(
+    [
+      choice("time", "Time", DELAY_TIMES, 3),
+      p("feedback", "Feedback", 0, 95, 40, "%"),
+      p("tone", "Tone", 500, 18000, 5000, "Hz", "exp"),
+      choice("pingPong", "Ping-pong", ["Off", "On"], 1),
+      MIX,
+    ],
+    {
+      time: "Echo time, synced to the tempo. T is a triplet, D is dotted.",
+      feedback: "How much each echo feeds the next. Higher repeats longer.",
+      tone: "Removes highs from the echoes, so each repeat gets darker. Lower sounds like tape.",
+      pingPong: "On bounces the echoes between left and right.",
+    },
+  ),
   build(ctx, input, output) {
     // Force stereo so mono instruments feed both sides.
     const stereo = ctx.createGain();
@@ -215,12 +241,20 @@ function impulse(ctx: BaseAudioContext, seconds: number) {
 const reverbFx: EffectDef = {
   label: "Reverb",
   mix: true,
-  params: [
-    p("decay", "Decay", 0.3, 12, 2.2, "s", "exp"),
-    p("predelay", "Pre-delay", 0, 200, 15, "ms"),
-    p("tone", "Tone", 1000, 18000, 7000, "Hz", "exp"),
-    MIX,
-  ],
+  params: describe(
+    [
+      p("decay", "Decay", 0.3, 12, 2.2, "s", "exp"),
+      p("predelay", "Pre-delay", 0, 200, 15, "ms"),
+      p("tone", "Tone", 1000, 18000, 7000, "Hz", "exp"),
+      MIX,
+    ],
+    {
+      decay: "Length of the reverb tail, from a small room to a huge hall.",
+      predelay:
+        "Gap before the reverb starts. Keeps the original sound clear of the room.",
+      tone: "Removes highs from the reverb. Lower is darker and softer.",
+    },
+  ),
   build(ctx, input, output) {
     const predelay = ctx.createDelay(0.5);
     const convolver = ctx.createConvolver();
@@ -251,14 +285,26 @@ const reverbFx: EffectDef = {
 
 const compressorFx: EffectDef = {
   label: "Compressor",
-  params: [
-    p("threshold", "Threshold", -60, 0, -18, "dB"),
-    p("ratio", "Ratio", 1, 20, 4),
-    p("attack", "Attack", 0.1, 100, 10, "ms", "exp"),
-    p("release", "Release", 10, 1000, 150, "ms", "exp"),
-    // The native compressor already applies makeup gain; this is a plain trim.
-    p("output", "Output", -24, 12, 0, "dB"),
-  ],
+  params: describe(
+    [
+      p("threshold", "Threshold", -60, 0, -18, "dB"),
+      p("ratio", "Ratio", 1, 20, 4),
+      p("attack", "Attack", 0.1, 100, 10, "ms", "exp"),
+      p("release", "Release", 10, 1000, 150, "ms", "exp"),
+      // The native compressor already applies makeup gain; this is a plain trim.
+      p("output", "Output", -24, 12, 0, "dB"),
+    ],
+    {
+      threshold:
+        "Level above which it starts turning the sound down. Lower compresses more.",
+      ratio:
+        "How hard sound above the threshold is turned down. 2 is gentle, 4 typical, 10 and up limits.",
+      attack:
+        "How fast it reacts. Fast tames peaks; slower lets the initial hit punch through.",
+      release: "How fast it lets go after the level drops.",
+      output: "Level after compression.",
+    },
+  ),
   build(ctx, input, output) {
     const comp = ctx.createDynamicsCompressor();
     comp.knee.value = 6;

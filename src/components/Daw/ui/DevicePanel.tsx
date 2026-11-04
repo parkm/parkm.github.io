@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -10,6 +10,7 @@ import {
   type RefObject,
 } from "react";
 import { EFFECTS } from "../engine/effects";
+import { PAD_LEVEL, PAD_PAN } from "../engine/padParams";
 import type { ParamDef } from "../engine/params";
 import {
   ENVELOPE_PICKS,
@@ -24,6 +25,7 @@ import {
   SYNTH_PRESETS,
 } from "../engine/synth";
 import { VOICES } from "../engine/voices";
+import { deviceLabel } from "../export/patch";
 import {
   addEffect,
   moveDevice,
@@ -44,17 +46,8 @@ import type {
 import { useDaw, useDoc } from "./context";
 import { DragNumber } from "./DragNumber";
 import { Knob } from "./Knob";
-import { formatPan, PAN } from "./TrackMixer";
-
-const LEVEL: ParamDef = {
-  key: "level",
-  label: "Level",
-  min: -36,
-  max: 6,
-  default: 0,
-  unit: "dB",
-  step: 0.1,
-};
+import { PatchDialog } from "./PatchDialog";
+import { formatPan } from "./TrackMixer";
 
 type DeviceChainProps = {
   trackId: Id;
@@ -177,15 +170,6 @@ export function DeviceChain({
   );
 }
 
-const deviceLabel = (device: Device) =>
-  device.type === "drumKit"
-    ? "Drum Kit"
-    : device.type === "quickSynth"
-      ? "Quick Synth"
-      : device.type === "synth"
-        ? "Synth"
-        : EFFECTS[device.type].label;
-
 function IconButton({
   label,
   onClick,
@@ -231,7 +215,8 @@ function DeviceCard({
   const { store } = useDaw();
   const isEffect = "bypass" in device;
   const on = !isEffect || !device.bypass;
-  const label = deviceLabel(device);
+  const label = deviceLabel(device.type);
+  const [editingText, setEditingText] = useState(false);
 
   const power = isEffect && (
     <button
@@ -292,6 +277,7 @@ function DeviceCard({
           {presets && (
             <select
               aria-label={`${label} preset`}
+              title="Load a preset (replaces every setting)"
               className="h-5 rounded bg-zinc-950/60 px-1 text-[11px] text-zinc-300"
               value=""
               onChange={(e) => {
@@ -313,6 +299,19 @@ function DeviceCard({
           )}
         </div>
         <div className="flex-1" />
+        <IconButton
+          label="Settings as text: copy, edit or paste to import"
+          onClick={() => setEditingText(true)}
+        >
+          <FileText size={13} />
+        </IconButton>
+        {editingText && (
+          <PatchDialog
+            trackId={trackId}
+            device={device}
+            onClose={() => setEditingText(false)}
+          />
+        )}
         {isEffect && (
           <>
             <IconButton
@@ -421,6 +420,8 @@ function ModMatrix({
 }) {
   const { store } = useDaw();
   const value = (key: string, fallback: number) => values[key] ?? fallback;
+  const info = (key: string) =>
+    SYNTH_PARAMS.find((d) => d.key === key)?.description;
   const select = "h-6 rounded bg-zinc-950/60 px-1 text-[11px] text-zinc-200";
   return (
     <div className="flex flex-col gap-1.5">
@@ -434,6 +435,7 @@ function ModMatrix({
           >
             <select
               aria-label={`Mod ${n} source`}
+              title={info(`mod${n}Src`)}
               className={`${select} w-24`}
               value={value(`mod${n}Src`, 0)}
               onChange={(e) =>
@@ -449,6 +451,7 @@ function ModMatrix({
             <span className="text-zinc-500">→</span>
             <select
               aria-label={`Mod ${n} target`}
+              title={info(`mod${n}Dst`)}
               className={`${select} w-24`}
               value={value(`mod${n}Dst`, 4)}
               onChange={(e) =>
@@ -463,6 +466,7 @@ function ModMatrix({
             </select>
             <DragNumber
               label={`Mod ${n} amount`}
+              hint={info(`mod${n}Amt`)}
               value={value(`mod${n}Amt`, 0)}
               min={-100}
               max={100}
@@ -490,7 +494,10 @@ function OptionSelect({
   onChange: (value: number) => void;
 }) {
   return (
-    <label className="flex w-[4.75rem] flex-col items-center gap-1">
+    <label
+      className="flex w-[4.75rem] flex-col items-center gap-1"
+      title={def.description}
+    >
       <span className="text-[11px] text-zinc-400">{def.label}</span>
       <select
         className="h-6 w-full rounded bg-zinc-950/60 px-0.5 text-[11px] text-zinc-200"
@@ -529,6 +536,7 @@ function DrumKitBody({
           <button
             key={p.id}
             type="button"
+            title={`${p.name}: click to play and edit`}
             className={`h-11 truncate rounded px-2 text-left text-xs transition-colors active:bg-amber-300 active:text-zinc-900 ${
               p.id === selectedPadId
                 ? "bg-zinc-500 text-zinc-50"
@@ -593,14 +601,14 @@ function PadEditor({ trackId, pad }: { trackId: Id; pad: Pad }) {
           />
         ))}
         <Knob
-          def={LEVEL}
+          def={PAD_LEVEL}
           value={pad.level}
           onChange={setLevel}
           onBegin={store.begin}
           onEnd={store.end}
         />
         <Knob
-          def={PAN}
+          def={PAD_PAN}
           value={pad.pan}
           onChange={setPan}
           onBegin={store.begin}
@@ -653,6 +661,7 @@ function QuickSynthBody({
       className="flex rounded bg-zinc-950/60 p-0.5"
       role="group"
       aria-label={defs.get(key)!.label}
+      title={defs.get(key)!.description}
     >
       {options.map((o, i) => (
         <button
@@ -711,6 +720,7 @@ function QuickSynthBody({
               <button
                 key={name}
                 type="button"
+                title={`${name} envelope: sets ${Object.keys(params).join(", ")}`}
                 className="h-6 rounded bg-zinc-700/70 px-2 text-[11px] text-zinc-200 hover:bg-zinc-600"
                 onClick={() => onPick(params)}
               >

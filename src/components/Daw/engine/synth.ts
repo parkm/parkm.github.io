@@ -10,7 +10,7 @@ import {
   SILENT,
   velocityGain,
 } from "./dsp";
-import { choice, resolveParams, type ParamDef } from "./params";
+import { choice, describe, resolveParams, type ParamDef } from "./params";
 
 /**
  * Subtractive polysynth in the spirit of Ableton's Analog: three oscillators
@@ -96,14 +96,50 @@ const oscParams = (
   octave = 0,
 ): ParamDef[] => {
   const g = `Osc ${n}`;
-  return [
-    choice(`osc${n}Wave`, "Wave", WAVES, wave, g),
-    def(`osc${n}Pw`, "Width", 5, 95, 50, "%", g),
-    def(`osc${n}Octave`, "Octave", -3, 3, octave, undefined, g),
-    def(`osc${n}Semi`, "Semi", -12, 12, 0, "st", g),
-    def(`osc${n}Fine`, "Fine", -50, 50, fine, "ct", g),
-    def(`osc${n}Level`, "Level", 0, 100, level, "%", g),
-  ];
+  const k = (name: string) => `osc${n}${name}`;
+  return describe(
+    [
+      choice(k("Wave"), "Wave", WAVES, wave, g),
+      def(k("Pw"), "Width", 5, 95, 50, "%", g),
+      def(k("Octave"), "Octave", -3, 3, octave, undefined, g),
+      def(k("Semi"), "Semi", -12, 12, 0, "st", g),
+      def(k("Fine"), "Fine", -50, 50, fine, "ct", g),
+      def(k("Level"), "Level", 0, 100, level, "%", g),
+    ],
+    {
+      [k("Wave")]:
+        "Waveform. Sine is pure, Triangle soft, Saw bright and buzzy, Square hollow, Pulse thin and nasal (shaped by Width).",
+      [k("Pw")]:
+        "Pulse width, used only by the Pulse wave. 50% sounds like a square; narrower is thinner.",
+      [k("Octave")]: "Shifts this oscillator by whole octaves.",
+      [k("Semi")]:
+        "Shifts this oscillator in semitones. 7 adds a fifth, 12 an octave.",
+      [k("Fine")]:
+        "Detunes this oscillator in cents. A few cents against another oscillator gives a slow, chorus-like beating.",
+      [k("Level")]: "This oscillator's volume into the filter. 0 turns it off.",
+    },
+  );
+};
+
+const ENV_TEXT: Record<string, [string, string, string, string]> = {
+  "Amp env": [
+    "Fade-in time of each note. Long attacks swell, like pads and strings.",
+    "Time to fall from full volume to the Sustain level.",
+    "Volume held while a note is held down. 0 makes plucked or percussive sounds.",
+    "Fade-out time after a note ends. Long releases ring on.",
+  ],
+  "Filter env": [
+    "Time for the filter envelope to rise to its peak, sweeping the cutoff by Env.",
+    "Time for the filter envelope to fall from its peak to Sustain.",
+    "Filter envelope level held while a note is held down.",
+    "Time for the filter envelope to return to zero after a note ends.",
+  ],
+  "Mod env": [
+    "Rise time of the mod envelope. It does nothing unless a Modulation row uses Mod env as its source.",
+    "Time for the mod envelope to fall from its peak to Sustain.",
+    "Mod envelope level held while a note is held down.",
+    "Time for the mod envelope to return to zero after a note ends.",
+  ],
 };
 
 const envParams = (
@@ -116,56 +152,129 @@ const envParams = (
 ): ParamDef[] => {
   const k = (name: string) =>
     prefix ? `${prefix}${name}` : name.toLowerCase();
-  return [
-    def(k("Attack"), "Attack", 1, 10000, a, "ms", group, "exp"),
-    def(k("Decay"), "Decay", 1, 10000, d, "ms", group, "exp"),
-    def(k("Sustain"), "Sustain", 0, 100, s, "%", group),
-    def(k("Release"), "Release", 1, 10000, r, "ms", group, "exp"),
-  ];
+  const [attack, decay, sustain, release] = ENV_TEXT[group];
+  return describe(
+    [
+      def(k("Attack"), "Attack", 1, 10000, a, "ms", group, "exp"),
+      def(k("Decay"), "Decay", 1, 10000, d, "ms", group, "exp"),
+      def(k("Sustain"), "Sustain", 0, 100, s, "%", group),
+      def(k("Release"), "Release", 1, 10000, r, "ms", group, "exp"),
+    ],
+    {
+      [k("Attack")]: attack,
+      [k("Decay")]: decay,
+      [k("Sustain")]: sustain,
+      [k("Release")]: release,
+    },
+  );
 };
 
 const lfoParams = (n: number): ParamDef[] => {
   const g = `LFO ${n}`;
-  return [
-    choice(`lfo${n}Wave`, "Wave", LFO_WAVES, 0, g),
-    choice(`lfo${n}Sync`, "Mode", ["Free", "Sync"], 1, g),
-    def(`lfo${n}Rate`, "Rate", 0.05, 30, 2, "Hz", g, "exp"),
-    choice(`lfo${n}Division`, "Division", LFO_DIVISIONS, 4, g),
-    def(`lfo${n}Fade`, "Fade in", 0, 3000, 0, "ms", g),
-  ];
+  const k = (name: string) => `lfo${n}${name}`;
+  return describe(
+    [
+      choice(k("Wave"), "Wave", LFO_WAVES, 0, g),
+      choice(k("Sync"), "Mode", ["Free", "Sync"], 1, g),
+      def(k("Rate"), "Rate", 0.05, 30, 2, "Hz", g, "exp"),
+      choice(k("Division"), "Division", LFO_DIVISIONS, 4, g),
+      def(k("Fade"), "Fade in", 0, 3000, 0, "ms", g),
+    ],
+    {
+      [k("Wave")]:
+        `LFO ${n} shape: smooth Sine or Triangle, ramping Saw, or Square jumping between two values. An LFO does nothing unless a Modulation row uses it.`,
+      [k("Sync")]:
+        "Free runs at Rate in Hz. Sync follows the tempo using Division.",
+      [k("Rate")]: "Speed in cycles per second, used when Mode is Free.",
+      [k("Division")]:
+        "Speed as a note length, used when Mode is Sync. 1/4 is one cycle per beat; T is a triplet.",
+      [k("Fade")]:
+        "Delays the LFO's effect after each note starts: silent for the first half, then fading in. Good for delayed vibrato.",
+    },
+  );
 };
 
-const modParams = (n: number): ParamDef[] => [
-  choice(`mod${n}Src`, "Source", MOD_SOURCES, 0, "Modulation"),
-  choice(`mod${n}Dst`, "Target", MOD_DESTINATIONS, 4, "Modulation"),
-  def(`mod${n}Amt`, "Amount", -100, 100, 0, "%", "Modulation"),
-];
+const modParams = (n: number): ParamDef[] =>
+  describe(
+    [
+      choice(`mod${n}Src`, "Source", MOD_SOURCES, 0, "Modulation"),
+      choice(`mod${n}Dst`, "Target", MOD_DESTINATIONS, 4, "Modulation"),
+      def(`mod${n}Amt`, "Amount", -100, 100, 0, "%", "Modulation"),
+    ],
+    {
+      [`mod${n}Src`]:
+        "What drives this modulation row. LFOs and envelopes move during the note; Velocity and Key are fixed per note (Key runs from -1 five octaves below middle C to +1 five above). Off disables the row.",
+      [`mod${n}Dst`]:
+        "What this row changes. At 100%: Pitch moves ±1 octave, an oscillator's pitch ±2 octaves, Cutoff ±5 octaves; Amp, Pan and levels move across their full range.",
+      [`mod${n}Amt`]:
+        "Depth of this row; negative inverts it. For vibrato try LFO → Pitch at 1 to 5%; for a wobble, LFO → Cutoff at 30 to 60%.",
+    },
+  );
 
 export const SYNTH_PARAMS: ParamDef[] = [
   ...oscParams(1, 2, 80, 0),
   ...oscParams(2, 2, 60, 7),
   ...oscParams(3, 0, 0, 0, -1),
-  def("noise", "Noise", 0, 100, 0, "%", "Mixer"),
-  def("unison", "Unison", 1, 7, 1, undefined, "Mixer"),
-  def("detune", "Detune", 0, 100, 15, "ct", "Mixer"),
-  def("spread", "Spread", 0, 100, 50, "%", "Mixer"),
-  choice("filterType", "Type", FILTER_TYPES, 0, "Filter"),
-  choice("slope", "Slope", ["12 dB", "24 dB"], 0, "Filter"),
-  def("cutoff", "Cutoff", 30, 18000, 1800, "Hz", "Filter", "exp"),
-  def("resonance", "Reso", 0, 100, 15, "%", "Filter"),
-  def("filterEnv", "Env", -48, 48, 24, "st", "Filter"),
-  def("keyTrack", "Key", 0, 100, 50, "%", "Filter"),
-  def("velFilter", "Vel", 0, 100, 30, "%", "Filter"),
+  ...describe(
+    [
+      def("noise", "Noise", 0, 100, 0, "%", "Mixer"),
+      def("unison", "Unison", 1, 7, 1, undefined, "Mixer"),
+      def("detune", "Detune", 0, 100, 15, "ct", "Mixer"),
+      def("spread", "Spread", 0, 100, 50, "%", "Mixer"),
+      choice("filterType", "Type", FILTER_TYPES, 0, "Filter"),
+      choice("slope", "Slope", ["12 dB", "24 dB"], 0, "Filter"),
+      def("cutoff", "Cutoff", 30, 18000, 1800, "Hz", "Filter", "exp"),
+      def("resonance", "Reso", 0, 100, 15, "%", "Filter"),
+      def("filterEnv", "Env", -48, 48, 24, "st", "Filter"),
+      def("keyTrack", "Key", 0, 100, 50, "%", "Filter"),
+      def("velFilter", "Vel", 0, 100, 30, "%", "Filter"),
+    ],
+    {
+      noise: "White noise mixed into the filter, for breath, air or hiss.",
+      unison:
+        "Copies of each oscillator per note, detuned and panned apart for a thicker, wider sound.",
+      detune:
+        "How far apart the unison copies are tuned. Needs Unison above 1.",
+      spread:
+        "How far apart the unison copies are panned. Needs Unison above 1.",
+      filterType:
+        "Low-pass removes highs (darker), High-pass removes lows (thinner), Band-pass keeps a band around the cutoff.",
+      slope:
+        "How steeply the filter cuts. 24 dB is stronger and more classic-synth than 12 dB.",
+      cutoff:
+        "Filter frequency. With low-pass, lower is darker and more muffled. The filter envelope, Key and modulation move it from here.",
+      resonance:
+        "Boosts frequencies right at the cutoff. High values whistle and squelch.",
+      filterEnv:
+        "How far the filter envelope moves the cutoff, in semitones. Positive opens the filter at the start of each note; negative closes it.",
+      keyTrack:
+        "How much the cutoff follows the note's pitch. At 100% high and low notes keep the same tone; at 0% high notes sound darker.",
+      velFilter:
+        "How much velocity scales the filter envelope. Higher makes soft notes darker and hard notes brighter.",
+    },
+  ),
   ...envParams("f", "Filter env", 2, 350, 20, 300),
   ...envParams("", "Amp env", 3, 600, 70, 250),
   ...envParams("m", "Mod env", 1, 500, 0, 300),
   ...lfoParams(1),
   ...lfoParams(2),
   ...Array.from({ length: MOD_SLOTS }, (_, i) => modParams(i + 1)).flat(),
-  def("voices", "Voices", 1, 16, 8, undefined, "Voice"),
-  def("glide", "Glide", 0, 1000, 0, "ms", "Voice"),
-  def("drive", "Drive", 0, 100, 0, "%", "Voice"),
-  def("volume", "Volume", -24, 6, 0, "dB", "Voice"),
+  ...describe(
+    [
+      def("voices", "Voices", 1, 16, 8, undefined, "Voice"),
+      def("glide", "Glide", 0, 1000, 0, "ms", "Voice"),
+      def("drive", "Drive", 0, 100, 0, "%", "Voice"),
+      def("volume", "Volume", -24, 6, 0, "dB", "Voice"),
+    ],
+    {
+      voices:
+        "How many notes can sound at once. 1 is monophonic: each new note cuts off the last.",
+      glide:
+        "Time for the pitch to slide from the previous note to the next. 0 is off.",
+      drive: "Saturation after the voices, for grit and extra harmonics.",
+      volume: "The synth's output level.",
+    },
+  ),
 ];
 
 const mod = (n: number, src: number, dst: number, amt: number) => ({
