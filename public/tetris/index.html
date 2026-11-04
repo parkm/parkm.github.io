@@ -16,15 +16,24 @@
   #board { border:1px solid #2a2b33; border-radius:3px;
     box-shadow: 0 0 0 1px #000, 0 0 20px rgba(80,120,255,0.05), 0 12px 30px rgba(0,0,0,0.5); }
   #hold, #queue { background:rgba(255,255,255,0.025); border:1px solid #1e1f26; border-radius:3px; }
-  #info { font-size:13px; line-height:1.5; align-self:flex-start; width:100%; white-space:nowrap; }
+  #info { font-size:13px; line-height:1.5; align-self:flex-start; width:0; min-width:100%; white-space:nowrap; }
   #hint, #ghint { font-size:11px; color:#777; text-align:center; }
   #ghint { display:none; }
-  #clear { margin-top:28px; min-height:1.5em; font-size:15px; font-weight:bold; text-align:center; }
+  #clear { width:0; min-width:100%; margin-top:28px; min-height:1.5em; font-size:15px; font-weight:bold; text-align:center; }
   #settings { position:fixed; left:16px; bottom:16px; font-size:12px; line-height:1.9; color:#999; }
   #settings label { display:flex; justify-content:space-between; gap:10px; }
   #settings input, #settings select { width:110px; background:#111; color:#ccc; border:1px solid #444; font-family:inherit; }
   #settings input { width:60px; }
-  #reset-settings { font:inherit; font-size:11px; color:#999; background:none; border:1px solid #444; border-radius:3px; padding:1px 8px; cursor:pointer; }
+  /* Settings groups: a small caps header per group; the handling group's reset sits in its header. */
+  #settings fieldset { border:0; border-top:1px solid #23242c; margin:0 0 6px; padding:2px 0 0; min-width:0; }
+  #settings fieldset:first-child { border-top:0; }
+  #settings fieldset:last-child { margin-bottom:0; }
+  #settings fieldset > label { clear:both; }
+  #settings legend { float:left; display:flex; align-items:center; justify-content:space-between; width:100%; box-sizing:border-box;
+    padding:0; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:#666; }
+  #reset-settings { font:inherit; font-size:10px; letter-spacing:1px; text-transform:lowercase; color:#777; background:none;
+    border:1px solid #333; border-radius:3px; padding:0 6px; line-height:1.6; cursor:pointer; }
+  #reset-settings:hover, #reset-settings:focus-visible { color:#ccc; border-color:#5a70ff; outline:none; }
   #settings > summary { display:none; }
 
   /* ---- narrow screens: shrink the side panels, let the board scale to fit ---- */
@@ -82,6 +91,26 @@
   #confirm form { display:flex; gap:10px; justify-content:center; }
   #confirm button { font:inherit; color:#ddd; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); border-radius:14px; padding:8px 16px; min-width:44px; }
   #confirm button[value=restart] { border-color:#5a70ff; background:rgba(120,150,255,0.25); }
+  /* ---- start menu: two cards, each with a little block picture ---- */
+  #menu { background:none; border:0; padding:0; overflow:visible; font-family:inherit; color:#ccc; }
+  #menu[open] { animation:menu-in .28s cubic-bezier(.2,.9,.3,1.2) both; }
+  #menu::backdrop { background:rgba(4,4,7,0.72); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
+  @keyframes menu-in { from { opacity:0; transform:translateY(10px) scale(.96); } }
+  #menu form { display:flex; gap:14px; }
+  #menu button { --accent:#0F9BD7; position:relative; display:flex; flex-direction:column; align-items:center; gap:12px;
+    width:170px; padding:22px 12px 16px; font:inherit; color:#ddd; cursor:pointer;
+    background:linear-gradient(180deg, #14151b, #0c0c10); border:1px solid #2a2b33; border-radius:10px;
+    box-shadow:0 12px 30px rgba(0,0,0,0.5); transition:transform .15s, border-color .15s, box-shadow .15s; }
+  #menu button.cheese { --accent:#E39F02; }
+  #menu button:hover, #menu button:focus-visible { outline:none; transform:translateY(-3px); border-color:var(--accent);
+    box-shadow:0 0 0 1px var(--accent), 0 0 24px color-mix(in srgb, var(--accent) 30%, transparent), 0 14px 30px rgba(0,0,0,0.55); }
+  #menu button:active { transform:translateY(-1px); }
+  #menu svg { display:block; width:60px; height:60px; filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6)); }
+  #menu .name { font-size:15px; font-weight:bold; letter-spacing:3px; text-transform:uppercase; }
+  #menu .sub { font-size:11px; color:#777; white-space:nowrap; }
+  #menu button:hover .sub, #menu button:focus-visible .sub { color:#aaa; }
+  @media (max-width: 420px) { #menu form { flex-direction:column; } #menu button { width:200px; } }
+  @media (prefers-reduced-motion: reduce) { #menu[open], #menu button { animation:none; transition:none; } }
   #touch #settings > .body { position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%);
     width:max-content; padding:6px 10px; background:rgba(12,12,16,0.96); border:1px solid #2a2b33; border-radius:6px; box-shadow:0 8px 24px rgba(0,0,0,0.6); }
 </style>
@@ -109,20 +138,42 @@
     </form>
   </dialog>
 
+  <!-- Start menu: button values match the Mode select's options. -->
+  <dialog id="menu" aria-label="choose a mode">
+    <form method="dialog">
+      <button type="submit" value="0" autofocus>
+        <svg viewBox="0 0 60 60" aria-hidden="true"><rect x="20.5" y="0.5" width="9" height="9" rx="1.5" fill="#AF298A"/><rect x="10.5" y="10.5" width="9" height="9" rx="1.5" fill="#AF298A"/><rect x="20.5" y="10.5" width="9" height="9" rx="1.5" fill="#AF298A"/><rect x="30.5" y="10.5" width="9" height="9" rx="1.5" fill="#AF298A"/><rect x="0.5" y="40.5" width="9" height="9" rx="1.5" fill="#0F9BD7"/><rect x="0.5" y="50.5" width="9" height="9" rx="1.5" fill="#0F9BD7"/><rect x="10.5" y="50.5" width="9" height="9" rx="1.5" fill="#0F9BD7"/><rect x="40.5" y="40.5" width="9" height="9" rx="1.5" fill="#0F9BD7"/><rect x="50.5" y="40.5" width="9" height="9" rx="1.5" fill="#0F9BD7"/><rect x="50.5" y="50.5" width="9" height="9" rx="1.5" fill="#0F9BD7"/><rect x="40.5" y="50.5" width="9" height="9" rx="1.5" fill="#0F9BD7"/><rect x="20.5" y="50.5" width="9" height="9" rx="1.5" fill="#59B101"/><rect x="30.5" y="50.5" width="9" height="9" rx="1.5" fill="#59B101"/></svg>
+        <span class="name">free play</span><span class="sub">no goal, just play</span>
+      </button>
+      <button type="submit" value="3:1" class="cheese">
+        <svg viewBox="0 0 60 60" aria-hidden="true"><rect x="0.5" y="20.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="10.5" y="20.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="20.5" y="20.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="40.5" y="20.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="50.5" y="20.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="0.5" y="30.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="20.5" y="30.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="30.5" y="30.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="40.5" y="30.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="50.5" y="30.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="0.5" y="40.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="10.5" y="40.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="20.5" y="40.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="30.5" y="40.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="50.5" y="40.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="0.5" y="50.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="10.5" y="50.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="30.5" y="50.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="40.5" y="50.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/><rect x="50.5" y="50.5" width="9" height="9" rx="1.5" fill="#7a7a7a"/></svg>
+        <span class="name">cheese</span><span class="sub">dig through 10 lines</span>
+      </button>
+    </form>
+  </dialog>
+
   <details id="settings" open>
     <summary>options</summary>
     <div class="body">
-    <label>DAS <input id="das" type="number" min="0"></label>
-    <label>ARR <input id="arr" type="number" min="0"></label>
-    <label title="ms after a piece locks on its own during which hard drop is ignored (0 = off)">Drop guard <input id="hdguard" type="number" min="0"></label>
-    <label>SDF <select id="sdf"><option value="0">slow</option><option value="1">fast</option><option value="2">2 (default)</option><option value="3">3</option><option value="4">instant</option></select></label>
-    <label>Gravity <input id="grav" type="number" min="0" max="28"></label>
-    <label>Mode <select id="mode">
-      <option value="0">Free play</option>
-      <option value="3:1">Cheese 10L</option>
-    </select></label>
-    <button type="button" id="reset-settings">reset to defaults</button>
-    <label>Touch <select id="touch-mode"><option value="auto">auto</option><option value="gestures">gestures</option><option value="buttons">buttons</option><option value="off">off</option></select></label>
+    <fieldset>
+      <legend>game</legend>
+      <label>Mode <select id="mode">
+        <option value="0">Free play</option>
+        <option value="3:1">Cheese 10L</option>
+      </select></label>
+    </fieldset>
+    <fieldset>
+      <legend>handling <button type="button" id="reset-settings" title="reset DAS, ARR, SDF, drop guard and gravity">reset</button></legend>
+      <label>DAS <input id="das" type="number" min="0"></label>
+      <label>ARR <input id="arr" type="number" min="0"></label>
+      <label>SDF <select id="sdf"><option value="0">slow</option><option value="1">fast</option><option value="2">2 (default)</option><option value="3">3</option><option value="4">instant</option></select></label>
+      <label title="ms after a piece locks on its own during which hard drop is ignored (0 = off)">Drop guard <input id="hdguard" type="number" min="0"></label>
+      <label>Gravity <input id="grav" type="number" min="0" max="28"></label>
+    </fieldset>
+    <fieldset>
+      <legend>touch</legend>
+      <label>Controls <select id="touch-mode"><option value="auto">auto</option><option value="gestures">gestures</option><option value="buttons">buttons</option><option value="off">off</option></select></label>
+    </fieldset>
     </div>
   </details>
 
