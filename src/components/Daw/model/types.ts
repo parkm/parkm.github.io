@@ -98,6 +98,7 @@ export type EffectType =
   | "reverb"
   | "compressor"
   | "multiband"
+  | "limiter"
   | "modulation"
   | "autoPan"
   | "utility";
@@ -107,6 +108,8 @@ export type EffectDevice = {
   type: EffectType;
   params: Record<string, number>;
   bypass: boolean;
+  /** Track whose sound drives this device's detector (compressor sidechain). */
+  sidechain?: Id;
 };
 
 export type InstrumentDevice =

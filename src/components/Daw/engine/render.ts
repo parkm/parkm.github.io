@@ -1,6 +1,7 @@
 import { secondsPerTick, swingTick } from "../model/time";
 import type { Id, Project } from "../model/types";
 import { createEngine } from "./engine";
+import { loadWorklets } from "./worklets";
 import {
   chosenClip,
   forEachNoteInRange,
@@ -33,9 +34,14 @@ export async function renderLoop(
   const loopFrames = Math.round(length * spt * sampleRate);
 
   const ctx = new OfflineAudioContext(2, loopFrames * (loops + 1), sampleRate);
+  await loadWorklets(ctx);
   const engine = createEngine(ctx);
+  // Stems: the other tracks still play, silenced at their faders, so
+  // sidechains listening to them (taken before the fader) still duck.
   const tracks = trackIds
-    ? doc.tracks.filter((t) => trackIds.includes(t.id))
+    ? doc.tracks.map((t) =>
+        trackIds.includes(t.id) ? t : { ...t, mute: true, solo: false },
+      )
     : doc.tracks;
   engine.sync({ ...doc, tracks });
   engine.setClock({ time: 0, beat: 0, bpm: doc.bpm });

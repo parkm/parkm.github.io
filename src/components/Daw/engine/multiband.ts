@@ -1,13 +1,5 @@
-import {
-  createAlignDelay,
-  createCrossover,
-  createCrossoverAllpass,
-  dbToGain,
-  gain,
-  ms,
-  nativeMakeup,
-  setParam,
-} from "./dsp";
+import { createCrossover, createCrossoverAllpass, gain } from "./dsp";
+import { createDynamics } from "./dynamics";
 import { blendMix, p, type EffectDef } from "./effectDef";
 import { describe, inGroup } from "./params";
 
@@ -16,19 +8,15 @@ import { describe, inGroup } from "./params";
  * up in each band, like Live's Multiband Dynamics (the OTT preset squashes
  * everything towards one level for that bright, dense, in-your-face sound).
  *
- *   in → crossovers → low / mid / high → Below stage → Above stage → band gain → out
+ *   in → crossovers → low / mid / high → dynamics (above + below) → out
  *
- * Above is plain downward compression. The native compressor can't compress
- * upwards, so Below is a downward compressor with a low threshold plus
- * makeup that brings it back to unity at the Above threshold: between the
- * two thresholds the sound is raised and squeezed (upward compression);
- * below both it's raised by the full makeup.
+ * Each band is one zero-latency dynamics processor: downward compression
+ * above the Above threshold, upward compression (quiet parts raised toward
+ * it) below the Below threshold.
  */
 
 const BANDS = ["Low", "Mid", "High"] as const;
 const KNEE = 6;
-/** Two native compressors in series per band, 6 ms lookahead each. */
-const LATENCY = 0.012;
 
 const bandParams = (name: string, key: string) =>
   inGroup(
@@ -44,7 +32,7 @@ const bandParams = (name: string, key: string) =>
       {
         [`${key}AboveThreshold`]: `${name} band: level above which loud parts are turned down.`,
         [`${key}AboveRatio`]: `${name} band: how hard loud parts are turned down. 1 is off; 20 flattens them like a limiter.`,
-        [`${key}BelowThreshold`]: `${name} band: level above which quiet parts are brought up towards the Above threshold. Lower reaches quieter details: tails, room, breaths.`,
+        [`${key}BelowThreshold`]: `${name} band: quiet parts below this level are brought up toward it. Set it just under Above to squash everything to one level (OTT); lower leaves more of the dynamics alone.`,
         [`${key}BelowRatio`]: `${name} band: how strongly quiet parts are brought up. 1 is off; 3 to 5 is heavy, OTT-style.`,
         [`${key}Gain`]: `${name} band: level after compression.`,
       },
@@ -54,7 +42,6 @@ const bandParams = (name: string, key: string) =>
 export const multibandFx: EffectDef = {
   label: "Multiband",
   mix: "blend",
-  latency: () => LATENCY,
   params: [
     ...inGroup(
       "Split",
@@ -92,8 +79,10 @@ export const multibandFx: EffectDef = {
   ],
   presets: {
     Init: {},
-    // Heavy upward and downward compression on every band, with the
-    // highs pushed: the "over the top" sound used all over EDM.
+    // Heavy downward compression above each threshold and heavy upward
+    // compression just below it, so every band is squashed toward one
+    // level, with the lows and highs pushed: the "over the top" sound used
+    // all over EDM. Output is set so a loud input comes out about as loud.
     OTT: {
       lowMid: 88,
       midHigh: 2500,
@@ -101,20 +90,20 @@ export const multibandFx: EffectDef = {
       release: 130,
       lowAboveThreshold: -33,
       lowAboveRatio: 20,
-      lowBelowThreshold: -55,
+      lowBelowThreshold: -39,
       lowBelowRatio: 4,
       lowGain: 3,
       midAboveThreshold: -30,
       midAboveRatio: 20,
-      midBelowThreshold: -50,
+      midBelowThreshold: -36,
       midBelowRatio: 4,
       midGain: 0,
       highAboveThreshold: -36,
       highAboveRatio: 20,
-      highBelowThreshold: -55,
+      highBelowThreshold: -42,
       highBelowRatio: 4,
       highGain: 4,
-      output: 14,
+      output: 15,
       mix: 50,
     },
     "OTT light": {
@@ -124,19 +113,19 @@ export const multibandFx: EffectDef = {
       release: 130,
       lowAboveThreshold: -33,
       lowAboveRatio: 20,
-      lowBelowThreshold: -55,
+      lowBelowThreshold: -39,
       lowBelowRatio: 4,
       lowGain: 3,
       midAboveThreshold: -30,
       midAboveRatio: 20,
-      midBelowThreshold: -50,
+      midBelowThreshold: -36,
       midBelowRatio: 4,
       highAboveThreshold: -36,
       highAboveRatio: 20,
-      highBelowThreshold: -55,
+      highBelowThreshold: -42,
       highBelowRatio: 4,
       highGain: 4,
-      output: 14,
+      output: 15,
       mix: 20,
     },
     "Mix glue": {
@@ -163,72 +152,48 @@ export const multibandFx: EffectDef = {
     // matches the other two and the bands add back up flat.
     const first = createCrossover(ctx, input);
     const second = createCrossover(ctx, first.high);
-    const lowAlign = createCrossover(ctx, first.low);
-    const lowIn = gain(ctx);
-    lowAlign.low.connect(lowIn);
-    lowAlign.high.connect(lowIn);
+    const lowAlign = createCrossoverAllpass(ctx);
+    first.low.connect(lowAlign.input);
 
-    // Dry for Amount: the same two phase shifts and the compressors' delay.
+    // Dry for Amount: the same two phase shifts.
     const dryA = createCrossoverAllpass(ctx);
     const dryB = createCrossoverAllpass(ctx);
     dryA.output.connect(dryB.input);
-    const dryDelay = createAlignDelay(ctx, LATENCY);
-    dryB.output.connect(dryDelay);
 
-    const bands = [lowIn, second.low, second.high].map((band) => {
-      const below = ctx.createDynamicsCompressor();
-      const belowGain = gain(ctx);
-      const above = ctx.createDynamicsCompressor();
-      const aboveGain = gain(ctx);
-      const level = gain(ctx);
-      below.knee.value = KNEE;
-      above.knee.value = KNEE;
-      band.connect(below).connect(belowGain).connect(above);
-      above.connect(aboveGain).connect(level).connect(output);
-      return { below, belowGain, above, aboveGain, level };
+    const sum = gain(ctx);
+    sum.connect(output);
+    const bands = [lowAlign.output, second.low, second.high].map((band) => {
+      const dyn = createDynamics(ctx);
+      band.connect(dyn.input);
+      dyn.output.connect(sum);
+      return dyn;
     });
 
     return {
-      dry: { input: dryA.input, output: dryDelay },
+      dry: { input: dryA.input, output: dryB.output },
       update(v) {
-        dryA.set(v.lowMid);
-        dryB.set(v.midHigh);
         first.set(v.lowMid);
         second.set(v.midHigh);
         lowAlign.set(v.midHigh);
+        dryA.set(v.lowMid);
+        dryB.set(v.midHigh);
         BANDS.forEach((name, i) => {
           const key = name.toLowerCase();
-          const b = bands[i];
-          const aboveT = v[`${key}AboveThreshold`];
-          const aboveR = v[`${key}AboveRatio`];
-          const belowT = Math.min(v[`${key}BelowThreshold`], aboveT);
-          const belowR = v[`${key}BelowRatio`];
-          for (const c of [b.below, b.above]) {
-            setParam(c.attack, ms(v.attack), ctx);
-            setParam(c.release, ms(v.release), ctx);
-          }
-          setParam(b.below.threshold, belowT, ctx);
-          setParam(b.below.ratio, belowR, ctx);
-          setParam(b.above.threshold, aboveT, ctx);
-          setParam(b.above.ratio, aboveR, ctx);
-          // Below: back to unity at the Above threshold, so everything
-          // under it comes up. Each stage also undoes the node's own makeup.
-          const lift = aboveT - (belowT + (aboveT - belowT) / belowR);
-          setParam(
-            b.belowGain.gain,
-            dbToGain(lift) / nativeMakeup(belowT, KNEE, belowR),
-            ctx,
-          );
-          setParam(
-            b.aboveGain.gain,
-            1 / nativeMakeup(aboveT, KNEE, aboveR),
-            ctx,
-          );
-          setParam(b.level.gain, dbToGain(v[`${key}Gain`] + v.output), ctx);
+          bands[i].set({
+            threshold: v[`${key}AboveThreshold`],
+            ratio: v[`${key}AboveRatio`],
+            belowThreshold: v[`${key}BelowThreshold`],
+            belowRatio: v[`${key}BelowRatio`],
+            knee: KNEE,
+            attack: v.attack,
+            release: v.release,
+            outputGain: v[`${key}Gain`] + v.output,
+          });
         });
       },
-      // The deepest reduction across the bands' Above stages.
-      reduction: () => Math.min(...bands.map((b) => b.above.reduction)),
+      // The deepest reduction across the bands.
+      reduction: () => Math.min(...bands.map((b) => b.reduction())),
+      dispose: () => bands.forEach((b) => b.dispose()),
     };
   },
 };

@@ -17,6 +17,7 @@ import {
 import type { Id, Project } from "../model/types";
 import { buildPhrase, detectTempo, type CapturedNote } from "./capture";
 import { createEngine, type Engine } from "./engine";
+import { loadWorklets } from "./worklets";
 import { createMetronome, type Metronome } from "./metronome";
 import { unlockPlayback } from "./unlockAudio";
 import type { ClipChoice } from "./schedule";
@@ -191,6 +192,7 @@ export function createSession(store: Store<Project>) {
     unlockPlayback();
     if (!audio) {
       const ctx = new AudioContext({ latencyHint: "interactive" });
+      void loadWorklets(ctx);
       const engine = createEngine(ctx, { meters: true });
       engine.sync(store.get());
       const metronome = createMetronome(ctx);

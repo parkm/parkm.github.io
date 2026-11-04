@@ -84,6 +84,19 @@ export const toggleBypass = (doc: Project, chainId: Id, deviceId: Id) =>
     "bypass" in d ? { ...d, bypass: !d.bypass } : d,
   );
 
+/** Point an effect's sidechain at a track (or nothing). */
+export const setSidechain = (
+  doc: Project,
+  chainId: Id,
+  deviceId: Id,
+  source: Id | null,
+) =>
+  updateDevice(doc, chainId, deviceId, (d) => {
+    if (!("bypass" in d) || (d.sidechain ?? null) === source) return d;
+    const { sidechain: _, ...rest } = d;
+    return source ? { ...rest, sidechain: source } : rest;
+  });
+
 export const addEffect = (doc: Project, chainId: Id, type: EffectType) =>
   updateChain(doc, chainId, (devices) => [
     ...devices,
@@ -121,4 +134,11 @@ export const replaceDevice = (
   chainId: Id,
   deviceId: Id,
   next: Device,
-) => updateDevice(doc, chainId, deviceId, () => ({ ...next, id: deviceId }));
+) =>
+  updateDevice(doc, chainId, deviceId, (old) => {
+    // Pasted settings carry params only; keep the routing.
+    const sidechain = "sidechain" in old ? old.sidechain : undefined;
+    return "bypass" in next && sidechain
+      ? { ...next, id: deviceId, sidechain }
+      : { ...next, id: deviceId };
+  });

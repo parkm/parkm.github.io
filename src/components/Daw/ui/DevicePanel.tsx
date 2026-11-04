@@ -35,6 +35,7 @@ import {
   moveDevice,
   removeDevice,
   setDeviceParam,
+  setSidechain,
   setDeviceParams,
   toggleBypass,
 } from "../model/deviceOps";
@@ -173,8 +174,22 @@ export function DeviceChain({
                     )
                   }
                   aside={
-                    device.type === "compressor" && (
-                      <ReductionMeter trackId={trackId} deviceId={device.id} />
+                    (device.type === "compressor" ||
+                      device.type === "multiband" ||
+                      device.type === "limiter") && (
+                      <div className="flex shrink-0 flex-col gap-3">
+                        {device.type === "compressor" && (
+                          <SidechainSelect
+                            chainId={trackId}
+                            deviceId={device.id}
+                            value={device.sidechain ?? null}
+                          />
+                        )}
+                        <ReductionMeter
+                          trackId={trackId}
+                          deviceId={device.id}
+                        />
+                      </div>
                     )
                   }
                 />
@@ -533,6 +548,52 @@ function ModMatrix({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Which track a compressor listens to. It hears that track after its
+ * devices and before its fader, so a muted "ghost" kick can still duck.
+ */
+function SidechainSelect({
+  chainId,
+  deviceId,
+  value,
+}: {
+  chainId: Id;
+  deviceId: Id;
+  value: Id | null;
+}) {
+  const { store } = useDaw();
+  const tracks = useDoc((d) => d.tracks);
+  const sources = tracks.filter((t) => t.id !== chainId);
+  const missing = value !== null && !tracks.some((t) => t.id === value);
+  return (
+    <label
+      className="flex w-32 flex-col gap-1"
+      title="Sidechain: let another track's sound drive this compressor, so that track ducks this one (the kick pumping a bass or pad). It listens after that track's devices and before its fader, so a muted track still works. Off listens to this track itself."
+    >
+      <span className="text-[10px] tracking-wide text-zinc-500 uppercase">
+        Sidechain
+      </span>
+      <select
+        className="h-6 w-full rounded bg-zinc-950/60 px-1 text-[11px] text-zinc-200"
+        value={value ?? ""}
+        onChange={(e) =>
+          store.update((d) =>
+            setSidechain(d, chainId, deviceId, e.currentTarget.value || null),
+          )
+        }
+      >
+        <option value="">Off (self)</option>
+        {sources.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
+          </option>
+        ))}
+        {missing && <option value={value}>(deleted track)</option>}
+      </select>
+    </label>
   );
 }
 

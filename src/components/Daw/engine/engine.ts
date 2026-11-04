@@ -52,10 +52,25 @@ type Chain = { id: Id; instance: DeviceInstance }[];
 type TrackNode = {
   track: Track;
   devices: Chain;
+  /** After the devices, before the fader: what sidechains hear from this track. */
+  tap: GainNode;
   gain: GainNode;
   pan: Balance;
   meter: Meter | null;
 };
+
+/** Disconnect one connection if it exists (removed tracks or devices may already be gone). */
+function disconnectQuietly(
+  from: AudioNode | undefined,
+  to: AudioNode | undefined,
+) {
+  if (!from || !to) return;
+  try {
+    from.disconnect(to);
+  } catch {
+    // Not connected.
+  }
+}
 
 type Meter = { read: () => [number, number]; dispose: () => void };
 
@@ -157,8 +172,71 @@ export function createEngine(
   }
 
   const syncDevices = (node: TrackNode, track: Track, env: DeviceEnv) => {
-    node.devices = syncChain(node.devices, track.devices, env, null, node.gain);
+    node.devices = syncChain(node.devices, track.devices, env, null, node.tap);
   };
+
+  /** Which source track each device's sidechain input is connected to. */
+  const routed = new Map<DeviceInstance, Id>();
+
+  /**
+   * Connect each device that names a sidechain source to that track's tap.
+   * Skips routings that would loop (A's device listening to B while B's
+   * listens to A, or a track to itself): Web Audio would silence the loop.
+   */
+  function routeSidechains(next: Project) {
+    const owners: { owner: Id; chain: Chain; devices: Device[] }[] = [
+      ...next.tracks.map((t) => ({
+        owner: t.id,
+        chain: tracks.get(t.id)?.devices ?? [],
+        devices: t.devices,
+      })),
+      { owner: MASTER, chain: masterChain, devices: next.masterDevices },
+    ];
+    // Track → tracks its devices listen to, for the loop check.
+    const listens = new Map<Id, Id[]>();
+    for (const { owner, devices } of owners)
+      listens.set(
+        owner,
+        devices.flatMap((d) =>
+          "sidechain" in d && d.sidechain ? [d.sidechain] : [],
+        ),
+      );
+    const reaches = (from: Id, to: Id, seen = new Set<Id>()): boolean => {
+      if (from === to) return true;
+      if (seen.has(from)) return false;
+      seen.add(from);
+      return (listens.get(from) ?? []).some((n) => reaches(n, to, seen));
+    };
+
+    const live = new Set<DeviceInstance>();
+    for (const { owner, chain, devices } of owners) {
+      chain.forEach(({ instance }, i) => {
+        if (!instance.sidechain) return;
+        live.add(instance);
+        const device = devices[i];
+        const wanted =
+          device && "sidechain" in device ? device.sidechain : undefined;
+        const ok =
+          wanted && tracks.has(wanted) && !reaches(wanted, owner)
+            ? wanted
+            : undefined;
+        const current = routed.get(instance);
+        if (current === ok) return;
+        if (current)
+          disconnectQuietly(tracks.get(current)?.tap, instance.sidechain);
+        if (ok) {
+          tracks.get(ok)!.tap.connect(instance.sidechain);
+          routed.set(instance, ok);
+        } else routed.delete(instance);
+      });
+    }
+    // Devices that are gone: let go of their inputs.
+    for (const [instance, source] of routed) {
+      if (live.has(instance)) continue;
+      disconnectQuietly(tracks.get(source)?.tap, instance.sidechain);
+      routed.delete(instance);
+    }
+  }
 
   function sync(next: Project) {
     if (next === doc) return;
@@ -190,12 +268,14 @@ export function createEngine(
         gain.channelCount = 2;
         gain.channelCountMode = "explicit";
         gain.channelInterpretation = "speakers";
+        const tap = ctx.createGain();
+        tap.connect(gain);
         const pan = createBalance(ctx, track.pan);
         gain.connect(pan.input);
         pan.output.connect(bus);
         gain.gain.value = trackGain(track, anySolo);
         const meter = meters ? createMeter(ctx, pan.output) : null;
-        node = { track, devices: [], gain, pan, meter };
+        node = { track, devices: [], tap, gain, pan, meter };
         tracks.set(track.id, node);
         syncDevices(node, track, env);
         continue;
@@ -213,9 +293,11 @@ export function createEngine(
       if (seen.has(id)) continue;
       node.devices.forEach((d) => d.instance.dispose());
       node.meter?.dispose();
+      node.tap.disconnect();
       node.pan.output.disconnect();
       tracks.delete(id);
     }
+    routeSidechains(next);
     doc = next;
   }
 

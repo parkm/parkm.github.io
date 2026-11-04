@@ -1,3 +1,4 @@
+import type { EffectDevice } from "../model/types";
 import type { Clock, DeviceEnv } from "./devices";
 import { BUTTERWORTH_Q } from "./dsp";
 import type { ParamDef } from "./params";
@@ -5,7 +6,14 @@ import type { ParamDef } from "./params";
 /** The shape of an effect, shared by effects.ts and the effects in their own files. */
 
 export type Built = {
-  update: (p: Record<string, number>, env: DeviceEnv) => void;
+  /** `device` carries fields beyond params, like the sidechain source. */
+  update: (
+    p: Record<string, number>,
+    env: DeviceEnv,
+    device: EffectDevice,
+  ) => void;
+  /** Where the engine connects the sidechain source (see EffectDevice.sidechain). */
+  sidechain?: AudioNode;
   /** Gain reduction in dB (≤ 0), for dynamics effects. */
   reduction?: () => number;
   /**

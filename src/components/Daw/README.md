@@ -96,6 +96,26 @@ cancels the first finger's edit with `store.cancel()`.
   `presets` fill the device's preset menu. Tempo-synced LFOs (`createLfo`)
   line their cycles up with the beat grid: the transport (and offline
   render) calls `engine.setClock`, which reaches devices through `clock`.
+  DSP that native nodes can't do runs in AudioWorklet processors, written
+  as typed code in `engine/worklet/processors.ts` and shipped as source text
+  (read the rules at the top of that file: self-contained, no class fields,
+  no allocation in `process`). The session loads them when it creates its
+  context and renders await them; devices wait with `whenWorklets`.
+  `engine/dynamics.ts` wraps the shared dynamics processor that the
+  Compressor, each Multiband band and the Limiter run on. It follows
+  Giannoulis, Massberg & Reiss (JAES 2012): feed-forward, log-domain gain
+  computer with a quadratic soft knee, smoothing applied to the gain (so
+  attack and release are exact time constants at any threshold or ratio).
+  A sliding-max hold on the detected level (up to 12 ms) stops the gain
+  wobbling within each bass cycle, which is what keeps distortion on steady
+  tones under 0.001%. Optional lookahead (Limiter) delays the audio and
+  averages the gain over the same length, which provably never exceeds the
+  ceiling; true peak adds a 4x Kaiser-sinc inter-sample detector (48 taps).
+- **Sidechain:** an effect that returns a `sidechain` input can name a
+  source track (`EffectDevice.sidechain`, set with `setSidechain`). The
+  engine connects that track's tap (after its devices, before its fader) and
+  refuses routings that would loop. Stem renders keep the other tracks
+  playing, silenced at the fader, so ducking still happens.
 - **Instrument:** add a device type in `model/types.ts`, implement
   `DeviceInstance` (`noteOn`, `noteOff`, `cancel`, `update`), and register it in
   `engine/devices.ts`. A front-end over an existing engine (like the Quick

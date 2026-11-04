@@ -38,6 +38,8 @@ export type DeviceInstance = {
   update: (device: Device, env: DeviceEnv) => void;
   /** Current gain reduction in dB (≤ 0), for dynamics devices. */
   reduction?: () => number;
+  /** Input for a sidechain source; the engine connects the track the device names. */
+  sidechain?: AudioNode;
   /** The transport's beat grid, whenever playback starts or the tempo changes. */
   clock?: (clock: Clock) => void;
   dispose: () => void;

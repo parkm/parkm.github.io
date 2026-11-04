@@ -14,7 +14,6 @@ import {
   LFO_SHAPES,
   ms,
   mulberry32,
-  nativeMakeup,
   setParam,
   stereoGain,
   SYNC_DIVISIONS,
@@ -28,9 +27,11 @@ import {
   SEND_MIX,
   type EffectDef,
 } from "./effectDef";
+import { createDynamics } from "./dynamics";
 import { eqFx } from "./eq";
 import { autoPanFx } from "./autoPan";
 import { modulationFx } from "./modulation";
+import { limiterFx } from "./limiter";
 import { multibandFx } from "./multiband";
 import { choice, describe, inGroup, resolveParams, showWhen } from "./params";
 import { utilityFx } from "./utility";
@@ -525,11 +526,19 @@ const reverbFx: EffectDef = {
 
 // Compressor -------------------------------------------------------------------
 
+/**
+ * Makeup for Auto: back up by 60% of what the threshold and ratio take off
+ * a full-scale (0 dBFS) peak, so harder settings come out a little louder
+ * (the same rule of thumb the browser's own compressor uses).
+ */
+function autoMakeup(threshold: number, ratio: number) {
+  const over = Math.max(0, -threshold);
+  return over * (1 - 1 / ratio) * 0.6;
+}
+
 const compressorFx: EffectDef = {
   label: "Compressor",
   mix: "blend",
-  // The native compressor looks ahead 6 ms.
-  latency: () => 0.006,
   params: describe(
     [
       ...inGroup("Compression", [
@@ -538,6 +547,8 @@ const compressorFx: EffectDef = {
         p("attack", "Attack", 0.1, 100, 10, "ms", "exp"),
         p("release", "Release", 10, 1000, 150, "ms", "exp"),
         p("knee", "Knee", 0, 30, 6, "dB"),
+        choice("detect", "Detect", ["Peak", "RMS"]),
+        p("scLowCut", "SC low cut", 20, 1000, 20, "Hz", "exp"),
       ]),
       ...inGroup("Output", [
         choice("makeup", "Makeup", ["Off", "Auto"]),
@@ -557,32 +568,73 @@ const compressorFx: EffectDef = {
         "How fast it reacts. Fast tames peaks; slower lets the initial hit punch through.",
       release: "How fast it lets go after the level drops.",
       knee: "How gradually compression starts around the threshold. 0 is abrupt and obvious; higher is smoother and more transparent.",
+      detect:
+        "Peak reacts to every transient: tight control, punchy. RMS reacts to the average level, like the ear: smoother, for gluing a mix or a bus. RMS reads lower than peaks, so it needs a lower threshold.",
+      scLowCut:
+        "Removes lows from what the compressor listens to (not from what you hear), so a kick or bass doesn't make the whole sound pump. Try 100 to 200 Hz on a mix. All the way down is off.",
       makeup:
         "Auto turns the sound back up by an estimate of what compression took away, so harder settings also sound louder. Off leaves the level to Output, which makes it easier to judge what the compressor is doing.",
       output:
         "Level after compression. Use it to match the level with the compressor on and off.",
     },
   ),
+  presets: {
+    Init: {},
+    "Sidechain duck": {
+      threshold: -30,
+      ratio: 8,
+      attack: 1,
+      release: 180,
+      knee: 6,
+    },
+    "Drum bus": {
+      threshold: -20,
+      ratio: 4,
+      attack: 20,
+      release: 120,
+      knee: 6,
+      makeup: 1,
+    },
+    "Parallel smash": {
+      threshold: -40,
+      ratio: 10,
+      attack: 1,
+      release: 80,
+      makeup: 1,
+      mix: 35,
+    },
+    "Mix glue": {
+      detect: 1,
+      threshold: -22,
+      ratio: 2,
+      attack: 30,
+      release: 200,
+      knee: 12,
+      scLowCut: 120,
+    },
+  },
   build(ctx, input, output) {
-    const comp = ctx.createDynamicsCompressor();
-    const makeup = gain(ctx);
-    input.connect(comp).connect(makeup).connect(output);
+    const dyn = createDynamics(ctx);
+    input.connect(dyn.input);
+    dyn.output.connect(output);
     return {
-      update(v) {
-        setParam(comp.threshold, v.threshold, ctx);
-        setParam(comp.ratio, v.ratio, ctx);
-        setParam(comp.attack, ms(v.attack), ctx);
-        setParam(comp.release, ms(v.release), ctx);
-        setParam(comp.knee, v.knee, ctx);
-        // Undo the node's built-in makeup unless Auto asks for it.
-        const native = nativeMakeup(v.threshold, v.knee, v.ratio);
-        setParam(
-          makeup.gain,
-          dbToGain(v.output) / (v.makeup === 1 ? 1 : native),
-          ctx,
-        );
+      update(v, _env, device) {
+        dyn.set({
+          threshold: v.threshold,
+          ratio: v.ratio,
+          knee: v.knee,
+          attack: v.attack,
+          release: v.release,
+          scLowCut: v.scLowCut,
+          rms: v.detect === 1,
+          outputGain:
+            v.output + (v.makeup === 1 ? autoMakeup(v.threshold, v.ratio) : 0),
+          external: !!device.sidechain,
+        });
       },
-      reduction: () => comp.reduction,
+      sidechain: dyn.sidechain,
+      reduction: dyn.reduction,
+      dispose: dyn.dispose,
     };
   },
 };
@@ -595,6 +647,7 @@ export const EFFECTS: Record<EffectType, EffectDef> = {
   delay: delayFx,
   reverb: reverbFx,
   multiband: multibandFx,
+  limiter: limiterFx,
   modulation: modulationFx,
   autoPan: autoPanFx,
   utility: utilityFx,
@@ -635,7 +688,7 @@ export function createEffect(
       return;
     const effect = device as EffectDevice;
     const v = resolveParams(def.params, effect.params);
-    built.update(v, env);
+    built.update(v, env, effect);
     const mix = def.mix ? v.mix / 100 : 1;
     const [dryGain, wetGain] =
       def.mix === "send"
@@ -655,6 +708,7 @@ export function createEffect(
     output,
     update,
     reduction: built.reduction,
+    sidechain: built.sidechain,
     clock: built.clock,
     dispose() {
       built.dispose?.();
