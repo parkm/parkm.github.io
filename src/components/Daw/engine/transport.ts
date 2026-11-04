@@ -1,4 +1,5 @@
 import {
+  PPQ,
   secondsPerTick,
   swingTick,
   ticksPerBar,
@@ -148,6 +149,7 @@ export function createTransport(
       anchorTime = ctx.currentTime;
       bpm = doc.bpm;
       spt = secondsPerTick(bpm);
+      engine.setClock({ time: anchorTime, beat: anchorPos / PPQ, bpm });
     }
     const swing = doc.swing;
     const horizon = unswingTick(posAt(ctx.currentTime + LOOKAHEAD), swing);
@@ -206,6 +208,7 @@ export function createTransport(
         launch.swapAt = 0;
       }
       playing = true;
+      engine.setClock({ time: anchorTime, beat: 0, bpm });
       pump();
       timer.run(true);
     },

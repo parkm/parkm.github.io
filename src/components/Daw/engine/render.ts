@@ -38,6 +38,7 @@ export async function renderLoop(
     ? doc.tracks.filter((t) => trackIds.includes(t.id))
     : doc.tracks;
   engine.sync({ ...doc, tracks });
+  engine.setClock({ time: 0, beat: 0, bpm: doc.bpm });
 
   for (const track of tracks) {
     const clip = chosenClip(doc, track, clips);

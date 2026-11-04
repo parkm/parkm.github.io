@@ -96,7 +96,11 @@ export type EffectType =
   | "drive"
   | "delay"
   | "reverb"
-  | "compressor";
+  | "compressor"
+  | "multiband"
+  | "modulation"
+  | "autoPan"
+  | "utility";
 
 export type EffectDevice = {
   id: Id;

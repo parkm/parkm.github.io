@@ -81,9 +81,21 @@ cancels the first finger's edit with `store.cancel()`.
 
 ## Adding a device
 
-- **Effect:** add an entry to `EFFECTS` in `engine/effects.ts` with its params
+- **Effect:** write an `EffectDef` (`engine/effectDef.ts`) with its params
   (`ParamDef`) and a `build` that wires native nodes between `input` and
-  `output`. The device panel, bypass, dry/wet and reordering come for free.
+  `output`, and add it to `EFFECTS` in `engine/effects.ts` (bigger ones live in
+  their own file, like `eq.ts`). The device panel, bypass, dry/wet and
+  reordering come for free. `mix: "send"` or `"blend"` adds a Dry/Wet param;
+  `latency` delays the dry path to match a wet path that lags (the
+  compressor's lookahead, the waveshaper's oversampling), so parallel blends
+  don't comb-filter. `inGroup` and `showWhen` (`params.ts`) lay params out
+  under headings and hide ones that don't apply. Shared pieces (crossover,
+  width, balance, tempo-synced LFO) are in `dsp.ts`.
+  An effect whose wet path splits into bands returns its own `dry` path
+  (through matching all-passes) so blends don't cancel at the crossovers.
+  `presets` fill the device's preset menu. Tempo-synced LFOs (`createLfo`)
+  line their cycles up with the beat grid: the transport (and offline
+  render) calls `engine.setClock`, which reaches devices through `clock`.
 - **Instrument:** add a device type in `model/types.ts`, implement
   `DeviceInstance` (`noteOn`, `noteOff`, `cancel`, `update`), and register it in
   `engine/devices.ts`. A front-end over an existing engine (like the Quick

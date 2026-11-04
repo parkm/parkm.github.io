@@ -10,6 +10,12 @@ import type { ParamDef } from "./params";
 export type DeviceEnv = { bpm: number };
 
 /**
+ * Where the beat grid sits in AudioContext time: quarter-note `beat` falls
+ * at `time`, moving at `bpm`. Tempo-synced LFOs line their cycles up to it.
+ */
+export type Clock = { time: number; beat: number; bpm: number };
+
+/**
  * A device is one link in a track's chain. Instruments and effects share this
  * shape: instruments implement the note methods and have no input; effects
  * take audio in.
@@ -32,6 +38,8 @@ export type DeviceInstance = {
   update: (device: Device, env: DeviceEnv) => void;
   /** Current gain reduction in dB (≤ 0), for dynamics devices. */
   reduction?: () => number;
+  /** The transport's beat grid, whenever playback starts or the tempo changes. */
+  clock?: (clock: Clock) => void;
   dispose: () => void;
 };
 

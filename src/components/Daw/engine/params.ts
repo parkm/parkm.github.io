@@ -15,6 +15,8 @@ export type ParamDef = {
   group?: string;
   /** What it does to the sound, in a sentence or two. Shown as the control's tooltip and in exported settings. */
   description?: string;
+  /** Shown only when this holds for the device's (resolved) values, like a delay's ms knob in Free mode. */
+  when?: (values: Record<string, number>) => boolean;
 };
 
 /** A param that picks one of `options` (value is the index). */
@@ -90,6 +92,16 @@ export function resolveParams(
   for (const d of defs) out[d.key] = values[d.key] ?? d.default;
   return out;
 }
+
+/** Put defs under a heading in the device UI. */
+export const inGroup = (group: string, defs: ParamDef[]): ParamDef[] =>
+  defs.map((d) => ({ ...d, group }));
+
+/** Show defs only when `when` holds for the device's values. */
+export const showWhen = (
+  when: (values: Record<string, number>) => boolean,
+  defs: ParamDef[],
+): ParamDef[] => defs.map((d) => ({ ...d, when }));
 
 /** Attach descriptions to defs by key. */
 export const describe = (

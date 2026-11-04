@@ -1,4 +1,4 @@
-import type { EffectDef } from "./effects";
+import type { EffectDef } from "./effectDef";
 import { dbToGain, setParam } from "./dsp";
 import { choice, describe, type ParamDef } from "./params";
 

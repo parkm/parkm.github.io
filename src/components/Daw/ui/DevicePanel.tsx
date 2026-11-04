@@ -13,7 +13,7 @@ import { deviceParams } from "../engine/devices";
 import { EFFECTS } from "../engine/effects";
 import { FM_PRESETS } from "../engine/fmSynth";
 import { PAD_LEVEL, PAD_PAN, PAD_VEL } from "../engine/padParams";
-import type { ParamDef } from "../engine/params";
+import { resolveParams, type ParamDef } from "../engine/params";
 import {
   ENVELOPE_PICKS,
   QUICK_PARAMS,
@@ -269,7 +269,9 @@ function DeviceCard({
         ? QUICK_PRESETS
         : device.type === "fmSynth"
           ? FM_PRESETS
-          : null;
+          : "bypass" in device
+            ? (EFFECTS[device.type].presets ?? null)
+            : null;
 
   if (folded) {
     return (
@@ -405,7 +407,9 @@ function ParamGroups({
 }) {
   const { store } = useDaw();
   const groups = new Map<string, ParamDef[]>();
+  const resolved = resolveParams(defs, values);
   for (const def of defs) {
+    if (def.when && !def.when(resolved)) continue;
     const g = def.group ?? "";
     groups.set(g, [...(groups.get(g) ?? []), def]);
   }

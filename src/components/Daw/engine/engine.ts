@@ -1,7 +1,12 @@
 import { MASTER } from "../model/deviceOps";
 import type { Device, Id, Project, Track } from "../model/types";
-import { createDevice, type DeviceEnv, type DeviceInstance } from "./devices";
-import { dbToGain, setParam } from "./dsp";
+import {
+  createDevice,
+  type Clock,
+  type DeviceEnv,
+  type DeviceInstance,
+} from "./devices";
+import { createBalance, dbToGain, setParam, type Balance } from "./dsp";
 
 /**
  * Builds and maintains the audio graph for a document. It never touches a
@@ -35,6 +40,8 @@ export type Engine = {
    * `meters`. Safe to call every frame.
    */
   peak: (trackId: Id | null) => [number, number] | null;
+  /** Tell devices where the beat grid is (playback started, tempo changed, or a render begins at 0). */
+  setClock: (clock: Clock) => void;
   /** A device's gain reduction in dB (≤ 0), for devices that report one. `chainId` is a track id or MASTER. */
   reduction: (chainId: Id, deviceId: Id) => number | null;
   dispose: () => void;
@@ -49,40 +56,6 @@ type TrackNode = {
   pan: Balance;
   meter: Meter | null;
 };
-
-/**
- * Balance pan, like a mixer's: turning towards one side lowers the other side
- * and leaves this one alone. (StereoPannerNode instead folds the far channel
- * into the near one, so panning a stereo sound made it up to 6 dB louder.)
- */
-type Balance = {
-  input: AudioNode;
-  output: AudioNode;
-  set: (pan: number) => void;
-};
-
-function createBalance(ctx: BaseAudioContext, pan: number): Balance {
-  const split = ctx.createChannelSplitter(2);
-  const merge = ctx.createChannelMerger(2);
-  const left = ctx.createGain();
-  const right = ctx.createGain();
-  split.connect(left, 0).connect(merge, 0, 0);
-  split.connect(right, 1).connect(merge, 0, 1);
-  const gains = (p: number) => [
-    p > 0 ? Math.cos((p * Math.PI) / 2) : 1,
-    p < 0 ? Math.cos((-p * Math.PI) / 2) : 1,
-  ];
-  [left.gain.value, right.gain.value] = gains(pan);
-  return {
-    input: split,
-    output: merge,
-    set(p) {
-      const [l, r] = gains(p);
-      setParam(left.gain, l, ctx);
-      setParam(right.gain, r, ctx);
-    },
-  };
-}
 
 type Meter = { read: () => [number, number]; dispose: () => void };
 
@@ -139,6 +112,7 @@ export function createEngine(
 
   const tracks = new Map<Id, TrackNode>();
   let doc: Project | null = null;
+  let clock: Clock | null = null;
 
   /**
    * Bring a chain's instances in line with `devices`. `head` feeds the first
@@ -161,7 +135,11 @@ export function createEngine(
     // Chain order changed: reuse instances by id, rewire everything.
     const old = new Map(chain.map((d) => [d.id, d.instance]));
     const next = devices.map((d) => {
-      const instance = old.get(d.id) ?? createDevice(ctx, d, env);
+      let instance = old.get(d.id);
+      if (!instance) {
+        instance = createDevice(ctx, d, env);
+        if (clock) instance.clock?.(clock);
+      }
       old.delete(d.id);
       instance.update(d, env);
       instance.output.disconnect();
@@ -264,6 +242,12 @@ export function createEngine(
     peak(trackId) {
       const meter = trackId === null ? masterMeter : tracks.get(trackId)?.meter;
       return meter ? meter.read() : null;
+    },
+    setClock(next) {
+      clock = next;
+      for (const node of tracks.values())
+        node.devices.forEach((d) => d.instance.clock?.(next));
+      masterChain.forEach((d) => d.instance.clock?.(next));
     },
     reduction(chainId, deviceId) {
       const chain =
