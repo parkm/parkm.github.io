@@ -81,6 +81,13 @@ export type QuickSynthDevice = {
   params: Record<string, number>;
 };
 
+/** Four-operator FM synth. Params are keyed by FM_PARAMS. */
+export type FmSynthDevice = {
+  id: Id;
+  type: "fmSynth";
+  params: Record<string, number>;
+};
+
 export type EffectType = "filter" | "drive" | "delay" | "reverb" | "compressor";
 
 export type EffectDevice = {
@@ -90,7 +97,11 @@ export type EffectDevice = {
   bypass: boolean;
 };
 
-export type InstrumentDevice = DrumKitDevice | SynthDevice | QuickSynthDevice;
+export type InstrumentDevice =
+  | DrumKitDevice
+  | SynthDevice
+  | QuickSynthDevice
+  | FmSynthDevice;
 export type Device = InstrumentDevice | EffectDevice;
 
 export type Track = {

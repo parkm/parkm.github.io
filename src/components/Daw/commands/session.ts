@@ -174,6 +174,7 @@ export const trackCommands: Command[] = [
   addTrackCommand("drums"),
   addTrackCommand("quickSynth"),
   addTrackCommand("synth"),
+  addTrackCommand("fmSynth"),
   {
     id: "track.rename",
     group: "Track",

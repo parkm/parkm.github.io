@@ -1,8 +1,10 @@
 import type { Device } from "../model/types";
 import { createDrumKit } from "./drumKit";
-import { createEffect } from "./effects";
-import { createQuickSynth } from "./quickSynth";
-import { createSynth } from "./synth";
+import { createEffect, EFFECTS } from "./effects";
+import { createFmSynth, FM_PARAMS } from "./fmSynth";
+import { createQuickSynth, QUICK_PARAMS } from "./quickSynth";
+import { createSynth, SYNTH_PARAMS } from "./synth";
+import type { ParamDef } from "./params";
 
 /** Song-level values devices may depend on (tempo-synced delay). */
 export type DeviceEnv = { bpm: number };
@@ -43,7 +45,25 @@ export function createDevice(
       return createQuickSynth(ctx, device, env);
     case "synth":
       return createSynth(ctx, device, env);
+    case "fmSynth":
+      return createFmSynth(ctx, device);
     default:
       return createEffect(ctx, device, env);
+  }
+}
+
+/** The params of every device except the drum kit (whose pads have their own). */
+export function deviceParams(
+  type: Exclude<Device["type"], "drumKit">,
+): ParamDef[] {
+  switch (type) {
+    case "synth":
+      return SYNTH_PARAMS;
+    case "quickSynth":
+      return QUICK_PARAMS;
+    case "fmSynth":
+      return FM_PARAMS;
+    default:
+      return EFFECTS[type].params;
   }
 }

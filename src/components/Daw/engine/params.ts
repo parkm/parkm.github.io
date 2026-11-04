@@ -74,8 +74,12 @@ export function formatParam(def: ParamDef, value: number) {
     return `${value > 0 ? "+" : ""}${Math.round(value)} st`;
   if (def.unit === "dB")
     return value <= -60 ? "-inf dB" : `${value.toFixed(1)} dB`;
-  const digits = Math.abs(value) < 10 && !Number.isInteger(value) ? 1 : 0;
-  return `${value.toFixed(digits)}${unit ? ` ${unit}` : ""}`.replace(" %", "%");
+  const text =
+    def.step && def.step < 1
+      ? // Fine-stepped params show what the step allows: a 0.25-step ratio as 3.75 or 2.
+        String(Number(value.toFixed(3)))
+      : value.toFixed(Math.abs(value) < 10 && !Number.isInteger(value) ? 1 : 0);
+  return `${text}${unit ? ` ${unit}` : ""}`.replace(" %", "%");
 }
 
 export function resolveParams(

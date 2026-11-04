@@ -10,12 +10,13 @@ import { ticksPerBar } from "./time";
 
 /** Session view edits: tracks, scenes, and clips in slots. */
 
-export type TrackKind = "drums" | "synth" | "quickSynth";
+export type TrackKind = "drums" | "synth" | "quickSynth" | "fmSynth";
 
 export const TRACK_KINDS: Record<TrackKind, string> = {
   drums: "Drums",
   quickSynth: "Quick Synth",
   synth: "Synth",
+  fmSynth: "FM Synth",
 };
 
 export function addTrack(doc: Project, kind: TrackKind): Project {

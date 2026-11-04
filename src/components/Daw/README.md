@@ -1,6 +1,6 @@
 # DAW
 
-Browser DAW at `/daw`. Session view, clips and scenes, synth drums, two synths,
+Browser DAW at `/daw`. Session view, clips and scenes, synth drums, three synths (subtractive, Quick Synth, FM),
 effects, capture, and export, built on raw Web Audio.
 
 ## Layers

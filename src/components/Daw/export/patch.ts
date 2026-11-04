@@ -1,8 +1,7 @@
+import { deviceParams } from "../engine/devices";
 import { EFFECTS } from "../engine/effects";
 import { PAD_CHOKE, PAD_LEVEL, PAD_NOTE, PAD_PAN } from "../engine/padParams";
 import { constrainParam, type ParamDef } from "../engine/params";
-import { QUICK_PARAMS } from "../engine/quickSynth";
-import { SYNTH_PARAMS } from "../engine/synth";
 import { VOICES } from "../engine/voices";
 import { newId } from "../model/ops";
 import type { Device, EffectType, Pad, VoiceType } from "../model/types";
@@ -22,7 +21,7 @@ import type { Device, EffectType, Pad, VoiceType } from "../model/types";
 
 type DeviceType = Device["type"];
 
-const INSTRUMENTS: DeviceType[] = ["drumKit", "synth", "quickSynth"];
+const INSTRUMENTS: DeviceType[] = ["drumKit", "synth", "quickSynth", "fmSynth"];
 const isInstrument = (type: DeviceType) => INSTRUMENTS.includes(type);
 const DEVICE_TYPES: DeviceType[] = [
   ...INSTRUMENTS,
@@ -36,14 +35,11 @@ export const deviceLabel = (type: DeviceType) =>
       ? "Quick Synth"
       : type === "synth"
         ? "Synth"
-        : EFFECTS[type].label;
+        : type === "fmSynth"
+          ? "FM Synth"
+          : EFFECTS[type].label;
 
-const paramDefs = (type: Exclude<DeviceType, "drumKit">): ParamDef[] =>
-  type === "synth"
-    ? SYNTH_PARAMS
-    : type === "quickSynth"
-      ? QUICK_PARAMS
-      : EFFECTS[type].params;
+const paramDefs = deviceParams;
 
 const VOICE_TYPES = Object.keys(VOICES) as VoiceType[];
 
@@ -279,7 +275,11 @@ export function readPatch(text: string, current: Device): PatchResult {
   if (isInstrument(type))
     return {
       ok: true,
-      device: { id: current.id, type: type as "synth" | "quickSynth", params },
+      device: {
+        id: current.id,
+        type: type as "synth" | "quickSynth" | "fmSynth",
+        params,
+      },
       problems,
     };
   return {

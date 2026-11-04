@@ -95,7 +95,7 @@ export function createSynthTrack(
   name: string,
   hue: number,
   sceneCount: number,
-  type: "synth" | "quickSynth" = "synth",
+  type: "synth" | "quickSynth" | "fmSynth" = "synth",
 ): Track {
   return {
     ...createDrumTrack(name, hue, sceneCount),

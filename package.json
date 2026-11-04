@@ -12,7 +12,7 @@
     "lint-staged": "lint-staged",
     "typecheck": "astro check",
     "eslint": "eslint .",
-    "lint": "npm run eslint && npm run typecheck"
+    "lint": "bun run eslint && bun run typecheck"
   },
   "dependencies": {
     "@astrojs/react": "^5.0.0",

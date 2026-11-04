@@ -9,7 +9,9 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { deviceParams } from "../engine/devices";
 import { EFFECTS } from "../engine/effects";
+import { FM_PRESETS } from "../engine/fmSynth";
 import { PAD_LEVEL, PAD_PAN } from "../engine/padParams";
 import type { ParamDef } from "../engine/params";
 import {
@@ -45,6 +47,7 @@ import type {
 } from "../model/types";
 import { useDaw, useDoc } from "./context";
 import { DragNumber } from "./DragNumber";
+import { FmAlgorithm, fmGroupLabel } from "./FmAlgorithm";
 import { Knob } from "./Knob";
 import { PatchDialog } from "./PatchDialog";
 import { formatPan } from "./TrackMixer";
@@ -136,10 +139,12 @@ export function DeviceChain({
                 />
               ) : (
                 <ParamGroups
-                  defs={
-                    device.type === "synth"
-                      ? SYNTH_PARAMS
-                      : EFFECTS[device.type].params
+                  defs={deviceParams(device.type)}
+                  groupLabel={
+                    device.type === "fmSynth"
+                      ? (name) =>
+                          fmGroupLabel(name, device.params.algorithm ?? 0)
+                      : undefined
                   }
                   values={device.params}
                   onChange={(key, value) =>
@@ -234,7 +239,9 @@ function DeviceCard({
       ? SYNTH_PRESETS
       : device.type === "quickSynth"
         ? QUICK_PRESETS
-        : null;
+        : device.type === "fmSynth"
+          ? FM_PRESETS
+          : null;
 
   if (folded) {
     return (
@@ -357,8 +364,11 @@ function ParamGroups({
   defs,
   values,
   onChange,
+  groupLabel = (name) => name,
 }: {
   defs: ParamDef[];
+  /** Heading text for a group (defaults to its name). */
+  groupLabel?: (name: string) => string;
   values: Record<string, number>;
   onChange: (key: string, value: number) => void;
 }) {
@@ -374,11 +384,17 @@ function ParamGroups({
         <div key={name} data-group={name} className="flex shrink-0 flex-col">
           {name && (
             <div className="mb-1.5 text-[10px] tracking-wide text-zinc-500 uppercase">
-              {name}
+              {groupLabel(name)}
             </div>
           )}
           {name === "Modulation" ? (
             <ModMatrix values={values} onChange={onChange} />
+          ) : name === "Algorithm" ? (
+            <FmAlgorithm
+              def={group[0]}
+              value={values[group[0].key] ?? group[0].default}
+              onChange={(v) => onChange(group[0].key, v)}
+            />
           ) : (
             <div
               className={`grid gap-x-1 gap-y-2 ${group.length > 8 ? "grid-cols-3" : "grid-cols-2"}`}
