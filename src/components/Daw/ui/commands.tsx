@@ -15,6 +15,7 @@ import {
   type CommandContext,
 } from "../commands/types";
 import { useDaw } from "./context";
+import { insertMarker } from "./insertMarker";
 
 /**
  * Connects commands to React: buttons and menus refer to a command by id and
@@ -97,6 +98,7 @@ export function useCommand(id: string): CommandState {
         store.subscribe(listener),
         session.subscribe(listener),
         commands.subscribe(listener),
+        insertMarker.subscribe(listener),
       ];
       return () => unsubs.forEach((u) => u());
     },

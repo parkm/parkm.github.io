@@ -33,6 +33,7 @@ import {
   dragBrace,
   type BraceHandle,
 } from "./loopBrace";
+import { insertMarker, useInsertMarker } from "./insertMarker";
 
 /**
  * Step editor: one view over a clip's note events (the piano roll will be
@@ -90,6 +91,8 @@ export function StepGrid({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [range]);
+
+  const marker = useInsertMarker(clipId);
 
   // The whole clip is shown; the loop brace marks the part that plays.
   const viewEnd = clipViewEnd(clip);
@@ -303,6 +306,8 @@ export function StepGrid({
             barSteps={barSteps}
             range={range}
             onRange={setRange}
+            marker={marker === null ? null : marker / grid}
+            onMarker={(step) => insertMarker.set(clipId, step * grid)}
             onLoop={() => {
               if (!range) return;
               store.update((d) =>
@@ -458,6 +463,8 @@ function Ruler({
   barSteps,
   range,
   onRange,
+  marker,
+  onMarker,
   onLoop,
   onCrop,
 }: {
@@ -466,6 +473,9 @@ function Ruler({
   barSteps: number;
   range: StepRange | null;
   onRange: (range: StepRange | null) => void;
+  /** Insert marker, in steps (may fall between steps). */
+  marker: number | null;
+  onMarker: (step: number) => void;
   onLoop: () => void;
   onCrop: () => void;
 }) {
@@ -497,7 +507,7 @@ function Ruler({
   }
   return (
     <div
-      title="Drag to select a range to loop or crop"
+      title="Click to place the insert marker (for Set); drag to select a range to loop or crop"
       className="relative h-6 cursor-text touch-none"
       onPointerDown={(e) => {
         if (e.button !== 0) return;
@@ -515,10 +525,19 @@ function Ruler({
       onPointerUp={() => {
         const d = drag.current;
         drag.current = null;
-        if (d && !d.moved) onRange(null);
+        if (d && !d.moved) {
+          onRange(null);
+          onMarker(d.anchor);
+        }
       }}
     >
       <div className="absolute inset-0 overflow-hidden">{labels}</div>
+      {marker !== null && marker < steps && (
+        <div
+          className="pointer-events-none absolute inset-y-0 w-px bg-amber-400/80"
+          style={{ left: `${(marker / steps) * 100}%` }}
+        />
+      )}
       {range && (
         <>
           <div

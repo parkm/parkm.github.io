@@ -162,7 +162,10 @@ const addTrackCommand = (kind: TrackKind): Command => ({
   group: "Track",
   title: `Add ${TRACK_KINDS[kind]} track`,
   keywords: ["new", "instrument"],
-  run: (ctx) => ctx.store.update((d) => addTrack(d, kind)),
+  run: (ctx) => {
+    ctx.store.update((d) => addTrack(d, kind));
+    ctx.workspace.selectTrack(ctx.store.get().tracks.at(-1)!.id);
+  },
 });
 
 const hasTrack = (ctx: CommandContext) => !!ctx.track;

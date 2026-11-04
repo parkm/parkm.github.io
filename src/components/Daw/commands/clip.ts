@@ -7,28 +7,41 @@ import {
   humanizeRow,
   quantizeNotes,
   randomizeRow,
-  setClipLength,
+  loopEndOf,
+  loopStartOf,
+  setLoop,
   shiftClip,
   shiftRow,
 } from "../model/ops";
-import { PPQ, ticksPerBar } from "../model/time";
+import { formatBeatTime, PPQ } from "../model/time";
 import { quantizeOptions } from "../ui/editorSettings";
+import { insertMarker } from "../ui/insertMarker";
 import type { Command, CommandContext } from "./types";
 
 /** The selected clip as a whole: its loop, timing, and (drums) rows. */
 
 const hasClip = (ctx: CommandContext) => !!ctx.clip;
 
-const loopLength = (bars: number): Command => ({
-  id: `clip.loop${bars}`,
-  group: "Clip",
-  title: `Loop length: ${bars} bar${bars > 1 ? "s" : ""}`,
-  when: hasClip,
-  run: (ctx) =>
-    ctx.store.update((d) =>
-      setClipLength(d, ctx.clip!.id, bars * ticksPerBar(d.timeSignature)),
-    ),
-});
+/**
+ * Where the Set buttons put a loop marker: the insert marker (click the
+ * ruler to place it). With no marker, the play position snapped down to the
+ * grid, so Set still works while listening.
+ */
+export function setPoint(ctx: CommandContext): number | null {
+  const clip = ctx.clip;
+  if (!clip || !ctx.track) return null;
+  const marker = insertMarker.get(clip.id);
+  if (marker !== null) return marker;
+  const rel = ctx.session.clipPosition(ctx.track.id, clip.id, clip.length);
+  return rel === null
+    ? null
+    : loopStartOf(clip) + Math.floor(rel / ctx.grid) * ctx.grid;
+}
+
+const pointLabel = (ctx: CommandContext, tick: number | null) =>
+  tick === null
+    ? "insert marker"
+    : formatBeatTime(tick, ctx.store.get().timeSignature, "position");
 
 export const clipCommands: Command[] = [
   {
@@ -99,10 +112,42 @@ export const clipCommands: Command[] = [
     when: hasClip,
     run: (ctx) => ctx.store.update((d) => shiftClip(d, ctx.clip!.id, ctx.grid)),
   },
-  loopLength(1),
-  loopLength(2),
-  loopLength(4),
-  loopLength(8),
+  {
+    id: "clip.setLoopStart",
+    group: "Clip",
+    title: (ctx) => `Set loop start to ${pointLabel(ctx, setPoint(ctx))}`,
+    keywords: ["position", "marker", "brace"],
+    when: hasClip,
+    enabled: (ctx) => {
+      const t = setPoint(ctx);
+      return t !== null && t !== loopStartOf(ctx.clip!);
+    },
+    // Moves the loop, keeping its length.
+    run: (ctx) => {
+      const t = setPoint(ctx);
+      if (t !== null)
+        ctx.store.update((d) => setLoop(d, ctx.clip!.id, t, ctx.clip!.length));
+    },
+  },
+  {
+    id: "clip.setLoopEnd",
+    group: "Clip",
+    title: (ctx) => `Set loop end to ${pointLabel(ctx, setPoint(ctx))}`,
+    keywords: ["length", "marker", "brace"],
+    when: hasClip,
+    enabled: (ctx) => {
+      const t = setPoint(ctx);
+      return (
+        t !== null && t > loopStartOf(ctx.clip!) && t !== loopEndOf(ctx.clip!)
+      );
+    },
+    run: (ctx) => {
+      const t = setPoint(ctx);
+      const start = loopStartOf(ctx.clip!);
+      if (t !== null && t > start)
+        ctx.store.update((d) => setLoop(d, ctx.clip!.id, start, t - start));
+    },
+  },
 ];
 
 // Drum rows: the selected pad's row in the step grid.

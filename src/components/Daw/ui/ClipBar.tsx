@@ -12,10 +12,12 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { EditorView } from "../commands/types";
+import { loopStartOf, setLoop } from "../model/ops";
 import { renameClip } from "../model/sessionOps";
-import { GRID_DIVISIONS, ticksPerBar, type Tick } from "../model/time";
+import { GRID_DIVISIONS, PPQ, type Tick } from "../model/time";
 import type { Id } from "../model/types";
-import { useCommandButton, useCommands } from "./commands";
+import { BeatTimeField } from "./BeatTimeField";
+import { useCommandButton } from "./commands";
 import { useDaw, useDoc } from "./context";
 import { EditableText } from "./EditableText";
 
@@ -25,18 +27,27 @@ import { EditableText } from "./EditableText";
  * so their labels, shortcuts and enabled state match the command menu.
  */
 
-const LOOP_BARS = [1, 2, 4, 8];
+/** Loop fields stop at 999 bars of 4/4. */
+const MAX_TICKS = 999 * 4 * PPQ;
 
 function Divider() {
   return <div className="h-4 w-px bg-zinc-700" />;
 }
 
 /** A small button that runs a command. */
-function CommandButton({ id, children }: { id: string; children: ReactNode }) {
+function CommandButton({
+  id,
+  children,
+  className = "",
+}: {
+  id: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <button
       type="button"
-      className="flex h-6 min-w-6 items-center justify-center gap-1 rounded px-1 text-xs text-zinc-300 hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent"
+      className={`${className} flex h-6 min-w-6 items-center justify-center gap-1 rounded px-1 text-xs text-zinc-300 hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent`}
       {...useCommandButton(id)}
     >
       {children}
@@ -64,10 +75,9 @@ export function ClipBar({
   padName,
 }: ClipBarProps) {
   const { store } = useDaw();
-  const commands = useCommands();
   const clip = useDoc((d) => d.clips[clipId]);
-  const bar = useDoc((d) => ticksPerBar(d.timeSignature));
-  const bars = clip.length / bar;
+  const timeSignature = useDoc((d) => d.timeSignature);
+  const loopStart = loopStartOf(clip);
 
   return (
     <div className="flex h-9 shrink-0 items-center gap-3 overflow-x-auto border-b border-zinc-950 px-3 text-xs *:shrink-0">
@@ -106,27 +116,41 @@ export function ClipBar({
         </div>
       )}
 
-      <div
-        className="flex items-center gap-1"
-        role="group"
-        aria-label="Loop length"
-      >
-        <span className="mr-1 text-zinc-500">Loop</span>
-        {LOOP_BARS.map((n) => (
-          <button
-            key={n}
-            type="button"
-            aria-pressed={bars === n}
-            className={`h-6 rounded px-2 tabular-nums ${
-              bars === n
-                ? "bg-zinc-600 text-zinc-50"
-                : "text-zinc-400 hover:bg-zinc-700"
-            }`}
-            onClick={() => commands.run(`clip.loop${n}`)}
-          >
-            {n} bar{n > 1 ? "s" : ""}
-          </button>
-        ))}
+      <div className="flex items-center gap-1" role="group" aria-label="Loop">
+        <span className="mr-1 text-zinc-500">Start</span>
+        <BeatTimeField
+          label="Loop start"
+          kind="position"
+          timeSignature={timeSignature}
+          value={loopStart}
+          min={0}
+          max={MAX_TICKS}
+          onBegin={() => store.begin()}
+          onEnd={() => store.end()}
+          onChange={(t) =>
+            store.update((d) => setLoop(d, clipId, t, clip.length))
+          }
+        />
+        <CommandButton id="clip.setLoopStart" className="text-[10px] uppercase">
+          Set
+        </CommandButton>
+        <span className="mr-1 ml-2 text-zinc-500">Length</span>
+        <BeatTimeField
+          label="Loop length"
+          kind="length"
+          timeSignature={timeSignature}
+          value={clip.length}
+          min={PPQ / 4}
+          max={MAX_TICKS}
+          onBegin={() => store.begin()}
+          onEnd={() => store.end()}
+          onChange={(t) =>
+            store.update((d) => setLoop(d, clipId, loopStart, t))
+          }
+        />
+        <CommandButton id="clip.setLoopEnd" className="text-[10px] uppercase">
+          Set
+        </CommandButton>
         <CommandButton id="clip.halveLoop">÷2</CommandButton>
         <CommandButton id="clip.doubleLoop">
           <CopyPlus size={13} /> ×2

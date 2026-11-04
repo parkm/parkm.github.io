@@ -41,6 +41,7 @@ import {
 import { ticksPerBar, ticksPerBeat, type Tick } from "../model/time";
 import type { Clip, Id, Note } from "../model/types";
 import { useDaw, useDoc, useSessionState } from "./context";
+import { insertMarker } from "./insertMarker";
 import {
   editorSettings,
   quantizeOptions,
@@ -162,7 +163,18 @@ export function PianoRoll({
   // the view, shrink the scale, and run away). It updates on release.
   const [heldEnd, setHeldEnd] = useState<Tick | null>(null);
   const view = useRef({ x: 0, y: 0 });
-  const insert = useRef<Tick | null>(null);
+  // The insert marker lives in a shared store so the clip bar's Set buttons see it.
+  const insert = useMemo(
+    () => ({
+      get current() {
+        return insertMarker.get(clipId);
+      },
+      set current(tick: Tick | null) {
+        insertMarker.set(clipId, tick);
+      },
+    }),
+    [clipId],
+  );
   const hoverPitch = useRef<number | null>(null);
   const gesture = useRef<Gesture | null>(null);
   const lastLength = useRef<Tick>(grid);
@@ -415,8 +427,8 @@ export function PianoRoll({
       g.fillStyle = "rgba(125,211,252,0.9)";
       g.fillRect(Math.round(scrubTick.current * ppt - sx), 0, 1, rollH);
     }
-    // Insert marker (where paste goes).
-    if (insert.current !== null && pos === null) {
+    // Insert marker (where paste and the Set buttons go).
+    if (insert.current !== null) {
       g.fillStyle = "rgba(251,191,36,0.7)";
       g.fillRect(Math.round(insert.current * ppt - sx), 0, 1, rollH);
     }
@@ -456,7 +468,7 @@ export function PianoRoll({
       dpr,
     );
     drawLoop(loopRef.current, clip, ppt, sx, dpr);
-  }, [labels, timeSignature]);
+  }, [labels, timeSignature, insert]);
 
   // Coalesce redraws to one per frame.
   const pending = useRef(0);

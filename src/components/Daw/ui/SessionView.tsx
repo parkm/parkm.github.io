@@ -204,7 +204,10 @@ export function SessionView({
             type="button"
             aria-label={`Add ${TRACK_KINDS[kind]} track`}
             className="flex h-6 items-center gap-1 rounded px-1.5 text-xs whitespace-nowrap text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100"
-            onClick={() => store.update((d) => addTrack(d, kind))}
+            onClick={() => {
+              store.update((d) => addTrack(d, kind));
+              onSelectTrack(store.get().tracks.at(-1)!.id);
+            }}
           >
             <Plus size={13} /> {TRACK_KINDS[kind]}
           </button>
