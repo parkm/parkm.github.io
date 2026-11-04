@@ -1,11 +1,14 @@
 import {
   secondsPerTick,
   swingTick,
+  ticksPerBar,
+  ticksPerBeat,
   unswingTick,
   type Tick,
 } from "../model/time";
 import type { Id, Project, Track } from "../model/types";
 import type { Engine } from "./engine";
+import type { Metronome } from "./metronome";
 import { forEachNoteInRange } from "./schedule";
 
 /**
@@ -91,6 +94,8 @@ export function createTransport(
   launches: Launches,
   /** Called when a queued launch becomes audible. */
   onSwap: () => void,
+  /** Clicks on every beat while this returns true. */
+  metronome: { on: () => boolean; instance: Metronome },
 ): Transport {
   let playing = false;
   let anchorTime = 0;
@@ -167,6 +172,16 @@ export function createTransport(
         setTimeout(onSwap, Math.max(0, delay * 1000));
       }
       playRange(doc, track, launch.active, from, horizon, swing);
+    }
+    if (metronome.on()) {
+      const beat = ticksPerBeat(doc.timeSignature);
+      const bar = ticksPerBar(doc.timeSignature);
+      for (
+        let at = Math.ceil(scheduled / beat) * beat;
+        at < horizon;
+        at += beat
+      )
+        metronome.instance.click(timeAt(swingTick(at, swing)), at % bar === 0);
     }
     scheduled = horizon;
     if (suppressed.size > 64) suppressed.clear();

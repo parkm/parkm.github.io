@@ -3,6 +3,7 @@ import {
   Circle,
   Command as CommandIcon,
   Download,
+  Metronome,
   Play,
   Redo2,
   Square,
@@ -56,6 +57,7 @@ export function TransportBar() {
   const { store, session } = useDaw();
   const playing = useSessionState((s) => s.playing);
   const recording = useSessionState((s) => s.recording);
+  const metronome = useSessionState((s) => s.metronome);
   const quantize = useDoc((d) => d.launchQuantize);
   const bpm = useDoc((d) => d.bpm);
   const swing = useDoc((d) => d.swing);
@@ -92,6 +94,9 @@ export function TransportBar() {
         className="enabled:text-amber-300"
       >
         <ArrowDownToLine size={14} />
+      </CommandToolButton>
+      <CommandToolButton id="transport.metronome" active={metronome}>
+        <Metronome size={14} />
       </CommandToolButton>
 
       <div className="mx-2 h-5 w-px bg-zinc-700" />

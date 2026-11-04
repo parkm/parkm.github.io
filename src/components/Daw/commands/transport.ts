@@ -37,6 +37,15 @@ export const transportCommands: Command[] = [
     run: (ctx) => ctx.workspace.capture(),
   },
   {
+    id: "transport.metronome",
+    group: "Transport",
+    title: (ctx) =>
+      ctx.session.getState().metronome ? "Metronome off" : "Metronome on",
+    keys: ["m"],
+    keywords: ["click", "beat"],
+    run: (ctx) => ctx.session.setMetronome(!ctx.session.getState().metronome),
+  },
+  {
     id: "transport.stopAllClips",
     group: "Transport",
     title: "Stop all clips",

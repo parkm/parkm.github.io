@@ -17,6 +17,7 @@ import {
 import type { Id, Project } from "../model/types";
 import { buildPhrase, detectTempo, type CapturedNote } from "./capture";
 import { createEngine, type Engine } from "./engine";
+import { createMetronome, type Metronome } from "./metronome";
 import { unlockPlayback } from "./unlockAudio";
 import type { ClipChoice } from "./schedule";
 import {
@@ -32,6 +33,8 @@ export type TrackPlayState = { playing: Id | null; queued?: Id | null };
 export type SessionState = {
   playing: boolean;
   recording: boolean;
+  /** Click on every beat while playing. A preference, not part of the document. */
+  metronome: boolean;
   tracks: Record<Id, TrackPlayState>;
   /** Tracks with played notes waiting to be captured. */
   capturable: Record<Id, boolean>;
@@ -77,6 +80,15 @@ const positionAt = (pos: Tick | null, at: number, bpm: number) =>
 const CAPTURE_GAP = 30;
 const CAPTURE_LIMIT = 2048;
 
+const METRONOME_KEY = "daw:metronome";
+function loadMetronome() {
+  try {
+    return localStorage.getItem(METRONOME_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Connects the document store to live audio and owns clip launch state. The
  * AudioContext is created on the first user gesture (browsers require one);
@@ -90,6 +102,7 @@ export function createSession(store: Store<Project>) {
     ctx: AudioContext;
     engine: Engine;
     transport: Transport;
+    metronome: Metronome;
   } | null = null;
   const listeners = new Set<() => void>();
 
@@ -106,7 +119,7 @@ export function createSession(store: Store<Project>) {
   };
   armFirstClips();
 
-  let flags = { playing: false, recording: false };
+  let flags = { playing: false, recording: false, metronome: loadMetronome() };
   let state = snapshot();
 
   function idle(clipId: Id | null): TrackLaunch {
@@ -164,8 +177,19 @@ export function createSession(store: Store<Project>) {
       const ctx = new AudioContext({ latencyHint: "interactive" });
       const engine = createEngine(ctx);
       engine.sync(store.get());
-      const transport = createTransport(ctx, engine, store.get, launches, emit);
-      audio = { ctx, engine, transport };
+      const metronome = createMetronome(ctx);
+      const transport = createTransport(
+        ctx,
+        engine,
+        store.get,
+        launches,
+        emit,
+        {
+          on: () => flags.metronome,
+          instance: metronome,
+        },
+      );
+      audio = { ctx, engine, transport, metronome };
     }
     if (audio.ctx.state !== "running") void audio.ctx.resume();
     return audio;
@@ -545,6 +569,15 @@ export function createSession(store: Store<Project>) {
       flags = { ...flags, recording };
       emit();
     },
+    setMetronome(metronome: boolean) {
+      flags = { ...flags, metronome };
+      try {
+        localStorage.setItem(METRONOME_KEY, metronome ? "1" : "0");
+      } catch {
+        // Storage blocked; the setting lasts for this visit.
+      }
+      emit();
+    },
     launch,
     launchScene,
     replaceProject,
@@ -579,6 +612,7 @@ export function createSession(store: Store<Project>) {
       if (!audio) return;
       audio.transport.dispose();
       audio.engine.dispose();
+      audio.metronome.dispose();
       void audio.ctx.close();
       audio = null;
     },
