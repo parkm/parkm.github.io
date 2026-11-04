@@ -46,6 +46,14 @@ export const transportCommands: Command[] = [
     run: (ctx) => ctx.session.setMetronome(!ctx.session.getState().metronome),
   },
   {
+    id: "transport.preview",
+    group: "Transport",
+    title: (ctx) =>
+      ctx.session.getState().preview ? "Preview notes off" : "Preview notes on",
+    keywords: ["audition", "headphones", "hear", "sound", "mute"],
+    run: (ctx) => ctx.session.setPreview(!ctx.session.getState().preview),
+  },
+  {
     id: "transport.stopAllClips",
     group: "Transport",
     title: "Stop all clips",

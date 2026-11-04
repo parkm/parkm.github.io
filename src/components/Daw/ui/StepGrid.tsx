@@ -181,7 +181,8 @@ export function StepGrid({
     );
     if (existing === undefined) {
       store.update((d) => addStep(d, clipId, pad.pitch, step, grid));
-      if (!session.getState().playing)
+      const { playing, preview } = session.getState();
+      if (preview && !playing)
         session.hit(trackId, pad.pitch, DEFAULT_VELOCITY, grid, {
           audition: true,
         });
@@ -275,9 +276,10 @@ export function StepGrid({
             selected={pad.id === selectedPadId}
             onSelect={() => {
               onSelectPad(pad.id);
-              session.hit(trackId, pad.pitch, DEFAULT_VELOCITY, grid, {
-                audition: true,
-              });
+              if (session.getState().preview)
+                session.hit(trackId, pad.pitch, DEFAULT_VELOCITY, grid, {
+                  audition: true,
+                });
             }}
             onToggleMute={() =>
               store.update((d) =>

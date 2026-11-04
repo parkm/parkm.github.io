@@ -35,6 +35,8 @@ export type SessionState = {
   recording: boolean;
   /** Click on every beat while playing. A preference, not part of the document. */
   metronome: boolean;
+  /** Sound notes as they're drawn or clicked in the clip editor. Also a preference. */
+  preview: boolean;
   tracks: Record<Id, TrackPlayState>;
   /** Tracks with played notes waiting to be captured. */
   capturable: Record<Id, boolean>;
@@ -81,11 +83,20 @@ const CAPTURE_GAP = 30;
 const CAPTURE_LIMIT = 2048;
 
 const METRONOME_KEY = "daw:metronome";
-function loadMetronome() {
+const PREVIEW_KEY = "daw:preview";
+function loadFlag(key: string, fallback: boolean) {
   try {
-    return localStorage.getItem(METRONOME_KEY) === "1";
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v === "1";
   } catch {
-    return false;
+    return fallback;
+  }
+}
+function saveFlag(key: string, on: boolean) {
+  try {
+    localStorage.setItem(key, on ? "1" : "0");
+  } catch {
+    // Storage blocked; the setting lasts for this visit.
   }
 }
 
@@ -119,7 +130,12 @@ export function createSession(store: Store<Project>) {
   };
   armFirstClips();
 
-  let flags = { playing: false, recording: false, metronome: loadMetronome() };
+  let flags = {
+    playing: false,
+    recording: false,
+    metronome: loadFlag(METRONOME_KEY, false),
+    preview: loadFlag(PREVIEW_KEY, true),
+  };
   let state = snapshot();
 
   function idle(clipId: Id | null): TrackLaunch {
@@ -571,11 +587,12 @@ export function createSession(store: Store<Project>) {
     },
     setMetronome(metronome: boolean) {
       flags = { ...flags, metronome };
-      try {
-        localStorage.setItem(METRONOME_KEY, metronome ? "1" : "0");
-      } catch {
-        // Storage blocked; the setting lasts for this visit.
-      }
+      saveFlag(METRONOME_KEY, metronome);
+      emit();
+    },
+    setPreview(preview: boolean) {
+      flags = { ...flags, preview };
+      saveFlag(PREVIEW_KEY, preview);
       emit();
     },
     launch,

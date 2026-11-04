@@ -7,6 +7,7 @@ import {
   Crop,
   Dices,
   Eraser,
+  Headphones,
   Magnet,
   Waves,
 } from "lucide-react";
@@ -18,7 +19,7 @@ import { GRID_DIVISIONS, PPQ, type Tick } from "../model/time";
 import type { Id } from "../model/types";
 import { BeatTimeField } from "./BeatTimeField";
 import { useCommandButton } from "./commands";
-import { useDaw, useDoc } from "./context";
+import { useDaw, useDoc, useSessionState } from "./context";
 import { EditableText } from "./EditableText";
 
 /**
@@ -39,15 +40,23 @@ function CommandButton({
   id,
   children,
   className = "",
+  active,
 }: {
   id: string;
   children: ReactNode;
   className?: string;
+  /** Set for toggles: shows the on state and reports it to screen readers. */
+  active?: boolean;
 }) {
   return (
     <button
       type="button"
-      className={`${className} flex h-6 min-w-6 items-center justify-center gap-1 rounded px-1 text-xs text-zinc-300 hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent`}
+      aria-pressed={active}
+      className={`${className} flex h-6 min-w-6 items-center justify-center gap-1 rounded px-1 text-xs disabled:opacity-35 disabled:hover:bg-transparent ${
+        active
+          ? "bg-amber-400 text-zinc-900"
+          : "text-zinc-300 hover:bg-zinc-700"
+      }`}
       {...useCommandButton(id)}
     >
       {children}
@@ -78,9 +87,13 @@ export function ClipBar({
   const clip = useDoc((d) => d.clips[clipId]);
   const timeSignature = useDoc((d) => d.timeSignature);
   const loopStart = loopStartOf(clip);
+  const preview = useSessionState((s) => s.preview);
 
   return (
     <div className="flex h-9 shrink-0 items-center gap-3 overflow-x-auto border-b border-zinc-950 px-3 text-xs *:shrink-0">
+      <CommandButton id="transport.preview" active={preview}>
+        <Headphones size={13} />
+      </CommandButton>
       <span
         className="flex max-w-40 rounded px-2 py-0.5 font-medium text-zinc-900"
         style={{ background: `oklch(0.8 0.15 ${clip.hue})` }}

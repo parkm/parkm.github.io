@@ -1,11 +1,11 @@
 import {
-  ArrowDownToLine,
   Circle,
   Command as CommandIcon,
   Download,
   Metronome,
   Play,
   Redo2,
+  Scan,
   Square,
   Undo2,
 } from "lucide-react";
@@ -93,7 +93,7 @@ export function TransportBar() {
         id="transport.capture"
         className="enabled:text-amber-300"
       >
-        <ArrowDownToLine size={14} />
+        <Scan size={14} />
       </CommandToolButton>
       <CommandToolButton id="transport.metronome" active={metronome}>
         <Metronome size={14} />

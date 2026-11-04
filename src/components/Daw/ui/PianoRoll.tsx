@@ -553,8 +553,10 @@ export function PianoRoll({
     return null;
   };
 
-  const audition = (pitch: number, velocity = DEFAULT_VELOCITY) =>
-    session.hit(trackId, pitch, velocity, grid, { duration: 0.2 });
+  const audition = (pitch: number, velocity = DEFAULT_VELOCITY) => {
+    if (session.getState().preview)
+      session.hit(trackId, pitch, velocity, grid, { duration: 0.2 });
+  };
 
   const select = (ids: Set<Id>) => setSelected(ids);
 
