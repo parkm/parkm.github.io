@@ -99,6 +99,10 @@ DynamicsCompressorNode adds its own makeup gain; the Compressor cancels it
 (`nativeMakeup`) unless Makeup is Auto. Track and master meters read
 `session.peak()`; dynamics devices report `reduction()`.
 
+The master has its own effects (`masterDevices`): tracks sum into them, then
+the master volume and the safety limiter. Device ops take a chain id, which is
+a track id or `MASTER` (`model/deviceOps.ts`).
+
 ## Persistence
 
 Projects autosave to localStorage and can be saved as JSON. Adding a document

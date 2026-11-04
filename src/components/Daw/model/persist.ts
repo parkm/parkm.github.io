@@ -61,6 +61,7 @@ function migrate(doc: Project): Project {
   return {
     ...doc,
     launchQuantize: doc.launchQuantize ?? PPQ * 4,
+    masterDevices: doc.masterDevices ?? [],
     scenes: [
       ...(doc.scenes ?? []),
       ...Array.from(

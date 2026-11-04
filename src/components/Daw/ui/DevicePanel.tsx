@@ -30,6 +30,8 @@ import { VOICES } from "../engine/voices";
 import { deviceLabel } from "../export/patch";
 import {
   addEffect,
+  chainOf,
+  firstEffectIndex,
   moveDevice,
   removeDevice,
   setDeviceParam,
@@ -62,7 +64,7 @@ type DeviceChainProps = {
 };
 
 /**
- * The selected track's device chain, left to right in signal order, like
+ * The selected track's (or the master's) device chain, left to right in signal order, like
  * Ableton's device view. Click a device title to fold it.
  */
 export function DeviceChain({
@@ -72,9 +74,7 @@ export function DeviceChain({
   grid,
 }: DeviceChainProps) {
   const { store } = useDaw();
-  const devices = useDoc(
-    (d) => d.tracks.find((t) => t.id === trackId)?.devices,
-  );
+  const devices = useDoc((d) => chainOf(d, trackId));
   const [folded, setFolded] = useState<Set<Id>>(() => new Set());
   const [zoom, setZoom] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -110,6 +110,7 @@ export function DeviceChain({
               trackId={trackId}
               device={device}
               index={i}
+              first={firstEffectIndex(devices)}
               count={devices.length}
               folded={folded.has(device.id)}
               onToggleFold={() => toggleFold(device.id)}
@@ -228,6 +229,7 @@ function DeviceCard({
   trackId,
   device,
   index,
+  first,
   count,
   folded,
   onToggleFold,
@@ -236,6 +238,8 @@ function DeviceCard({
   trackId: Id;
   device: Device;
   index: number;
+  /** Index of the first movable device (after any instrument). */
+  first: number;
   count: number;
   folded: boolean;
   onToggleFold: () => void;
@@ -347,7 +351,7 @@ function DeviceCard({
           <>
             <IconButton
               label="Move earlier"
-              disabled={index <= 1}
+              disabled={index <= first}
               onClick={() =>
                 store.update((d) => moveDevice(d, trackId, device.id, -1))
               }

@@ -1,6 +1,7 @@
 import { Music, SlidersHorizontal } from "lucide-react";
 import type { DetailMode, FocusArea } from "../commands/types";
 import { ClipDetail } from "./ClipDetail";
+import { MASTER } from "../model/deviceOps";
 import { DeviceChain } from "./DevicePanel";
 import { noteName } from "./PianoRoll";
 import { SessionView } from "./SessionView";
@@ -30,7 +31,9 @@ export function WideLayout({
         onPointerDownCapture={() => setFocus("session")}
       >
         <SessionView
-          selection={track ? { trackId: track.id, scene } : null}
+          selection={track && !ws.master ? { trackId: track.id, scene } : null}
+          masterSelected={ws.master}
+          onSelectMaster={ws.selectMaster}
           onSelect={ws.actions.select}
           onSelectTrack={ws.actions.selectTrack}
           onOpen={ws.openClip}
@@ -66,9 +69,9 @@ export function WideLayout({
             </button>
           ))}
         </nav>
-        {detail === "devices" && track ? (
+        {detail === "devices" && (ws.master || track) ? (
           <DeviceChain
-            trackId={track.id}
+            trackId={ws.master ? MASTER : track!.id}
             selectedPadId={ws.pad?.id ?? null}
             onSelectPad={ws.actions.selectPad}
             grid={ws.grid}

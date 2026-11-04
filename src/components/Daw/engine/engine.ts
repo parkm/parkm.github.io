@@ -1,4 +1,5 @@
-import type { Id, Project, Track } from "../model/types";
+import { MASTER } from "../model/deviceOps";
+import type { Device, Id, Project, Track } from "../model/types";
 import { createDevice, type DeviceEnv, type DeviceInstance } from "./devices";
 import { dbToGain, setParam } from "./dsp";
 
@@ -7,7 +8,8 @@ import { dbToGain, setParam } from "./dsp";
  * global AudioContext: give it a live context to play, or an
  * OfflineAudioContext to render. The same code produces both.
  *
- *   device chain → track gain → track pan → master gain → limiter → destination
+ *   device chain → track gain → track pan ┐
+ *   device chain → track gain → track pan ┴→ master effects → master gain → limiter → destination
  *
  * With `meters`, track and master levels can be read every frame (see peak).
  */
@@ -33,14 +35,16 @@ export type Engine = {
    * `meters`. Safe to call every frame.
    */
   peak: (trackId: Id | null) => [number, number] | null;
-  /** A device's gain reduction in dB (≤ 0), for devices that report one. */
-  reduction: (trackId: Id, deviceId: Id) => number | null;
+  /** A device's gain reduction in dB (≤ 0), for devices that report one. `chainId` is a track id or MASTER. */
+  reduction: (chainId: Id, deviceId: Id) => number | null;
   dispose: () => void;
 };
 
+type Chain = { id: Id; instance: DeviceInstance }[];
+
 type TrackNode = {
   track: Track;
-  devices: { id: Id; instance: DeviceInstance }[];
+  devices: Chain;
   gain: GainNode;
   pan: Balance;
   meter: Meter | null;
@@ -126,21 +130,37 @@ export function createEngine(
   limiter.release.value = 0.1;
   master.connect(limiter).connect(destination);
   const masterMeter = meters ? createMeter(ctx, master) : null;
+  // Tracks sum here, then run through the master effects into master gain.
+  const bus = ctx.createGain();
+  bus.channelCount = 2;
+  bus.channelCountMode = "explicit";
+  bus.connect(master);
+  let masterChain: Chain = [];
 
   const tracks = new Map<Id, TrackNode>();
   let doc: Project | null = null;
 
-  function syncDevices(node: TrackNode, track: Track, env: DeviceEnv) {
+  /**
+   * Bring a chain's instances in line with `devices`. `head` feeds the first
+   * device (null when it's an instrument); the last one feeds `tail`.
+   */
+  function syncChain(
+    chain: Chain,
+    devices: Device[],
+    env: DeviceEnv,
+    head: AudioNode | null,
+    tail: AudioNode,
+  ): Chain {
     const same =
-      node.devices.length === track.devices.length &&
-      node.devices.every((d, i) => d.id === track.devices[i].id);
+      chain.length === devices.length &&
+      chain.every((d, i) => d.id === devices[i].id);
     if (same) {
-      track.devices.forEach((d, i) => node.devices[i].instance.update(d, env));
-      return;
+      devices.forEach((d, i) => chain[i].instance.update(d, env));
+      return chain;
     }
     // Chain order changed: reuse instances by id, rewire everything.
-    const old = new Map(node.devices.map((d) => [d.id, d.instance]));
-    node.devices = track.devices.map((d) => {
+    const old = new Map(chain.map((d) => [d.id, d.instance]));
+    const next = devices.map((d) => {
       const instance = old.get(d.id) ?? createDevice(ctx, d, env);
       old.delete(d.id);
       instance.update(d, env);
@@ -148,11 +168,19 @@ export function createEngine(
       return { id: d.id, instance };
     });
     old.forEach((i) => i.dispose());
-    node.devices.forEach((d, i) => {
-      const next = node.devices[i + 1]?.instance.input ?? node.gain;
-      d.instance.output.connect(next);
+    if (head) {
+      head.disconnect();
+      head.connect(next[0]?.instance.input ?? tail);
+    }
+    next.forEach((d, i) => {
+      d.instance.output.connect(next[i + 1]?.instance.input ?? tail);
     });
+    return next;
   }
+
+  const syncDevices = (node: TrackNode, track: Track, env: DeviceEnv) => {
+    node.devices = syncChain(node.devices, track.devices, env, null, node.gain);
+  };
 
   function sync(next: Project) {
     if (next === doc) return;
@@ -161,6 +189,15 @@ export function createEngine(
     }
     const env: DeviceEnv = { bpm: next.bpm };
     const tempoChanged = doc?.bpm !== next.bpm;
+    if (!doc || next.masterDevices !== doc.masterDevices || tempoChanged) {
+      masterChain = syncChain(
+        masterChain,
+        next.masterDevices,
+        env,
+        bus,
+        master,
+      );
+    }
     const anySolo = next.tracks.some((t) => t.solo);
     const prevAnySolo = doc?.tracks.some((t) => t.solo) ?? false;
     const seen = new Set<Id>();
@@ -177,7 +214,7 @@ export function createEngine(
         gain.channelInterpretation = "speakers";
         const pan = createBalance(ctx, track.pan);
         gain.connect(pan.input);
-        pan.output.connect(master);
+        pan.output.connect(bus);
         gain.gain.value = trackGain(track, anySolo);
         const meter = meters ? createMeter(ctx, pan.output) : null;
         node = { track, devices: [], gain, pan, meter };
@@ -228,10 +265,10 @@ export function createEngine(
       const meter = trackId === null ? masterMeter : tracks.get(trackId)?.meter;
       return meter ? meter.read() : null;
     },
-    reduction(trackId, deviceId) {
-      const device = tracks
-        .get(trackId)
-        ?.devices.find((d) => d.id === deviceId)?.instance;
+    reduction(chainId, deviceId) {
+      const chain =
+        chainId === MASTER ? masterChain : tracks.get(chainId)?.devices;
+      const device = chain?.find((d) => d.id === deviceId)?.instance;
       return device?.reduction?.() ?? null;
     },
     dispose() {
@@ -239,6 +276,8 @@ export function createEngine(
         node.devices.forEach((d) => d.instance.dispose());
         node.meter?.dispose();
       }
+      masterChain.forEach((d) => d.instance.dispose());
+      masterChain = [];
       masterMeter?.dispose();
       tracks.clear();
       limiter.disconnect();

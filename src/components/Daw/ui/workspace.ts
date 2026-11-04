@@ -32,4 +32,7 @@ export type WorkspaceView = {
   actions: WorkspaceActions;
   /** Open a clip in the editor. */
   openClip: (slot: Slot) => void;
+  /** The master is selected: the device panel shows its effects. */
+  master: boolean;
+  selectMaster: () => void;
 };

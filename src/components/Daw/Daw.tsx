@@ -60,6 +60,9 @@ function Workspace() {
   const [selection, setSelection] = useState<Slot | null>(() =>
     tracks[0] ? { trackId: tracks[0].id, scene: 0 } : null,
   );
+  // The master is selected apart from the slot selection, so the clip editor
+  // keeps its clip while the device panel shows the master's effects.
+  const [master, setMaster] = useState(false);
   const [padByTrack, setPadByTrack] = useState<Record<Id, Id>>({});
   const [viewByTrack, setViewByTrack] = useState<Record<Id, EditorView>>({});
   const [grid, setGrid] = useState<Tick>(PPQ / 4);
@@ -112,6 +115,7 @@ function Workspace() {
   const actions: WorkspaceActions = {
     select: (slot) => {
       setSelection(slot);
+      setMaster(false);
       // Wide: the detail panel follows the selection. Phones stay on the
       // grid; double-tap opens the clip.
       const hasClip = tracks.find((t) => t.id === slot.trackId)?.slots[
@@ -121,6 +125,7 @@ function Workspace() {
     },
     selectTrack: (trackId) => {
       setSelection({ trackId, scene });
+      setMaster(false);
       showDetail("devices");
     },
     selectPad: (padId) =>
@@ -149,6 +154,7 @@ function Workspace() {
       const slot = session.capture(track.id, scene);
       if (!slot) return;
       setSelection(slot);
+      setMaster(false);
       showDetail("clip");
     },
     rename: (id) => setRename((r) => ({ id, n: (r?.n ?? 0) + 1 })),
@@ -208,7 +214,13 @@ function Workspace() {
     actions,
     openClip: (slot) => {
       setSelection(slot);
+      setMaster(false);
       showDetail("clip");
+    },
+    master,
+    selectMaster: () => {
+      setMaster(true);
+      showDetail("devices");
     },
   };
 

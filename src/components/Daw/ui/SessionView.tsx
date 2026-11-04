@@ -63,6 +63,8 @@ type SessionViewProps = {
   size?: keyof typeof SIZES;
   /** Mixer strips under each column (phones use the Mixer tab instead). */
   showMixer?: boolean;
+  masterSelected?: boolean;
+  onSelectMaster?: () => void;
 };
 
 type ClipDrag = {
@@ -97,6 +99,8 @@ export function SessionView({
   rename,
   size = "regular",
   showMixer = true,
+  masterSelected = false,
+  onSelectMaster,
 }: SessionViewProps) {
   const { store } = useDaw();
   const tracks = useDoc((d) => d.tracks);
@@ -215,7 +219,11 @@ export function SessionView({
         ))}
       </div>
       <div className="flex-1" />
-      <MasterColumn showMixer={showMixer} />
+      <MasterColumn
+        showMixer={showMixer}
+        selected={masterSelected}
+        onSelect={onSelectMaster}
+      />
       {ghost && (
         <div
           ref={ghostRef}
@@ -496,7 +504,16 @@ function ClipProgress({
   );
 }
 
-function MasterColumn({ showMixer }: { showMixer: boolean }) {
+function MasterColumn({
+  showMixer,
+  selected,
+  onSelect,
+}: {
+  showMixer: boolean;
+  selected: boolean;
+  /** Click the header to show the master's effects. */
+  onSelect?: () => void;
+}) {
   const { store, session } = useDaw();
   const scenes = useDoc((d) => d.scenes);
   const masterVolume = useDoc((d) => d.masterVolume);
@@ -504,7 +521,17 @@ function MasterColumn({ showMixer }: { showMixer: boolean }) {
   return (
     <div className="sticky right-0 z-20 flex shrink-0 flex-col border-l border-zinc-950 bg-zinc-900 w-(--col-w)">
       <ColumnHeader>
-        <span className="flex-1 text-xs font-medium text-zinc-200">Master</span>
+        <button
+          type="button"
+          title="Show master effects"
+          aria-pressed={selected}
+          className={`flex-1 self-stretch text-left text-xs font-medium ${
+            selected ? "text-amber-300" : "text-zinc-200 hover:text-zinc-50"
+          }`}
+          onClick={onSelect}
+        >
+          Master
+        </button>
       </ColumnHeader>
       {scenes.map((scene, i) => (
         <div

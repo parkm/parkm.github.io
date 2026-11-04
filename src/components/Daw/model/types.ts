@@ -142,6 +142,8 @@ export type Project = {
   swing: number;
   /** dB */
   masterVolume: number;
+  /** Effects on the master, in signal order, before the master volume. */
+  masterDevices: EffectDevice[];
   /** Clip launches wait for the next multiple of this many ticks (0 = immediately). */
   launchQuantize: Tick;
   scenes: Scene[];

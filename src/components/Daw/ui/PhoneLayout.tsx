@@ -6,6 +6,7 @@ import {
   SlidersVertical,
 } from "lucide-react";
 import { ClipDetail } from "./ClipDetail";
+import { MASTER } from "../model/deviceOps";
 import { DeviceChain } from "./DevicePanel";
 import { MixerView } from "./MixerView";
 import { PlaySheet } from "./PlaySheet";
@@ -48,7 +49,11 @@ export function PhoneLayout({
       <div className="flex min-h-0 flex-1 flex-col">
         {tab === "session" && (
           <SessionView
-            selection={track ? { trackId: track.id, scene } : null}
+            selection={
+              track && !ws.master ? { trackId: track.id, scene } : null
+            }
+            masterSelected={ws.master}
+            onSelectMaster={ws.selectMaster}
             onSelect={ws.actions.select}
             onSelectTrack={ws.actions.selectTrack}
             onOpen={ws.openClip}
@@ -58,9 +63,9 @@ export function PhoneLayout({
           />
         )}
         {tab === "clip" && <ClipDetail ws={ws} />}
-        {tab === "devices" && track && (
+        {tab === "devices" && (ws.master || track) && (
           <DeviceChain
-            trackId={track.id}
+            trackId={ws.master ? MASTER : track!.id}
             selectedPadId={ws.pad?.id ?? null}
             onSelectPad={ws.actions.selectPad}
             grid={ws.grid}
