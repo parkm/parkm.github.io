@@ -10,6 +10,13 @@ export const dbToGain = (db: number) => (db <= -60 ? 0 : 10 ** (db / 20));
 /** Perceptual velocity curve. */
 export const velocityGain = (v: number) => Math.max(0.01, v) ** 1.5;
 
+/**
+ * Note level for a velocity, with `amount` (0..1) of velocity sensitivity:
+ * 0 plays every note at full level, 1 follows velocityGain fully.
+ */
+export const velocityAmp = (v: number, amount: number) =>
+  1 - amount * (1 - velocityGain(v));
+
 /** Linear attack, then exponential decay to silence. Returns the time it's silent. */
 export function percEnv(
   param: AudioParam,

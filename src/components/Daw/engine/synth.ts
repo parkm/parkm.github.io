@@ -8,7 +8,7 @@ import {
   noise,
   setParam,
   SILENT,
-  velocityGain,
+  velocityAmp,
 } from "./dsp";
 import { choice, describe, resolveParams, type ParamDef } from "./params";
 
@@ -29,6 +29,8 @@ import { choice, describe, resolveParams, type ParamDef } from "./params";
 const WAVES = ["Sine", "Triangle", "Saw", "Square", "Pulse"] as const;
 const WAVE_TYPES: OscillatorType[] = ["sine", "triangle", "sawtooth", "square"];
 const PULSE = 4;
+/** One voice's peak level at full velocity, before Volume. */
+const SYNTH_PEAK = 0.44;
 const FILTER_TYPES = ["Low-pass", "High-pass", "Band-pass"] as const;
 const FILTER_NODE_TYPES: BiquadFilterType[] = [
   "lowpass",
@@ -263,6 +265,7 @@ export const SYNTH_PARAMS: ParamDef[] = [
     [
       def("voices", "Voices", 1, 16, 8, undefined, "Voice"),
       def("glide", "Glide", 0, 1000, 0, "ms", "Voice"),
+      def("velAmp", "Vel → amp", 0, 100, 50, "%", "Voice"),
       def("drive", "Drive", 0, 100, 0, "%", "Voice"),
       def("volume", "Volume", -24, 6, 0, "dB", "Voice"),
     ],
@@ -271,6 +274,8 @@ export const SYNTH_PARAMS: ParamDef[] = [
         "How many notes can sound at once. 1 is monophonic: each new note cuts off the last.",
       glide:
         "Time for the pitch to slide from the previous note to the next. 0 is off.",
+      velAmp:
+        "How much velocity changes each note's volume. 0 plays every note at full level; 100 makes soft notes much quieter.",
       drive: "Saturation after the voices, for grit and extra harmonics.",
       volume: "The synth's output level.",
     },
@@ -672,7 +677,7 @@ export function createSynth(
     }
 
     // Amp envelope: attack, then decay to sustain. Release lives on `rel`.
-    const peak = velocityGain(velocity) * 0.22;
+    const peak = velocityAmp(velocity, p.velAmp / 100) * SYNTH_PEAK;
     env.gain.setValueAtTime(0, t);
     env.gain.linearRampToValueAtTime(peak, t + ms(p.attack));
     env.gain.setTargetAtTime(

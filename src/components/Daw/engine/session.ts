@@ -191,7 +191,7 @@ export function createSession(store: Store<Project>) {
     unlockPlayback();
     if (!audio) {
       const ctx = new AudioContext({ latencyHint: "interactive" });
-      const engine = createEngine(ctx);
+      const engine = createEngine(ctx, { meters: true });
       engine.sync(store.get());
       const metronome = createMetronome(ctx);
       const transport = createTransport(
@@ -609,6 +609,11 @@ export function createSession(store: Store<Project>) {
       const at = audio?.transport.clipPosition(trackId);
       return at && at.clipId === clipId ? mod(at.tick, length) : null;
     },
+    /** Peak level per channel of a track, or the master (null). Safe to call every frame. */
+    peak: (trackId: Id | null) => audio?.engine.peak(trackId) ?? null,
+    /** A device's gain reduction in dB. Safe to call every frame. */
+    reduction: (trackId: Id, deviceId: Id) =>
+      audio?.engine.reduction(trackId, deviceId) ?? null,
     /** Pitches currently played live on a track. Safe to call every frame. */
     livePitches: (trackId: Id): ReadonlyMap<number, number> | undefined =>
       live.get(trackId),

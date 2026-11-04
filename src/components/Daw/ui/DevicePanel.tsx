@@ -12,7 +12,7 @@ import {
 import { deviceParams } from "../engine/devices";
 import { EFFECTS } from "../engine/effects";
 import { FM_PRESETS } from "../engine/fmSynth";
-import { PAD_LEVEL, PAD_PAN } from "../engine/padParams";
+import { PAD_LEVEL, PAD_PAN, PAD_VEL } from "../engine/padParams";
 import type { ParamDef } from "../engine/params";
 import {
   ENVELOPE_PICKS,
@@ -48,7 +48,9 @@ import type {
 import { useDaw, useDoc } from "./context";
 import { DragNumber } from "./DragNumber";
 import { FmAlgorithm, fmGroupLabel } from "./FmAlgorithm";
+import { EqBody } from "./EqBody";
 import { Knob } from "./Knob";
+import { ReductionMeter } from "./Meter";
 import { PatchDialog } from "./PatchDialog";
 import { formatPan } from "./TrackMixer";
 
@@ -137,6 +139,23 @@ export function DeviceChain({
                     )
                   }
                 />
+              ) : device.type === "eq" ? (
+                <EqBody
+                  values={device.params}
+                  onChange={(key, value) =>
+                    store.update((d) =>
+                      setDeviceParam(d, trackId, device.id, key, value),
+                    )
+                  }
+                  onChangeMany={(patch) =>
+                    store.update((d) =>
+                      setDeviceParams(d, trackId, device.id, {
+                        ...device.params,
+                        ...patch,
+                      }),
+                    )
+                  }
+                />
               ) : (
                 <ParamGroups
                   defs={deviceParams(device.type)}
@@ -150,6 +169,11 @@ export function DeviceChain({
                   onChange={(key, value) =>
                     store.update((d) =>
                       setDeviceParam(d, trackId, device.id, key, value),
+                    )
+                  }
+                  aside={
+                    device.type === "compressor" && (
+                      <ReductionMeter trackId={trackId} deviceId={device.id} />
                     )
                   }
                 />
@@ -365,12 +389,15 @@ function ParamGroups({
   values,
   onChange,
   groupLabel = (name) => name,
+  aside,
 }: {
   defs: ParamDef[];
   /** Heading text for a group (defaults to its name). */
   groupLabel?: (name: string) => string;
   values: Record<string, number>;
   onChange: (key: string, value: number) => void;
+  /** Shown after the params, like a compressor's reduction meter. */
+  aside?: ReactNode;
 }) {
   const { store } = useDaw();
   const groups = new Map<string, ParamDef[]>();
@@ -422,6 +449,7 @@ function ParamGroups({
           )}
         </div>
       ))}
+      {aside}
     </div>
   );
 }
@@ -595,6 +623,11 @@ function PadEditor({ trackId, pad }: { trackId: Id; pad: Pad }) {
       store.update((d) => updatePad(d, trackId, padId, (p) => ({ ...p, pan }))),
     [store, trackId, padId],
   );
+  const setVel = useCallback(
+    (vel: number) =>
+      store.update((d) => updatePad(d, trackId, padId, (p) => ({ ...p, vel }))),
+    [store, trackId, padId],
+  );
 
   return (
     <div className="flex w-64 shrink-0 flex-col gap-2">
@@ -630,6 +663,13 @@ function PadEditor({ trackId, pad }: { trackId: Id; pad: Pad }) {
           onBegin={store.begin}
           onEnd={store.end}
           format={formatPan}
+        />
+        <Knob
+          def={PAD_VEL}
+          value={pad.vel ?? PAD_VEL.default}
+          onChange={setVel}
+          onBegin={store.begin}
+          onEnd={store.end}
         />
       </div>
     </div>
@@ -769,9 +809,10 @@ function QuickSynthBody({
         "Play",
         <>
           {segmented("mono", defs.get("mono")!.options!)}
-          <div className="grid grid-cols-2 gap-x-1 gap-y-2">
+          <div className="grid grid-cols-3 gap-x-1 gap-y-2">
             {knob("glide", undefined, 38)}
             {knob("velocity", undefined, 38)}
+            {knob("velVolume", undefined, 38)}
             {knob("drive", undefined, 38)}
             {knob("volume", undefined, 38)}
           </div>

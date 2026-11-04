@@ -89,6 +89,16 @@ cancels the first finger's edit with `store.cancel()`.
   `engine/devices.ts`. A front-end over an existing engine (like the Quick
   Synth over the Synth) only needs a param translation.
 
+## Levels
+
+Instruments aim for one note at velocity 100 peaking around -7 dBFS, so
+faders behave like Live's (same dB math: `10^(dB/20)`). Track pan is a
+balance pan: it only lowers the far side. Velocity sensitivity is a param
+on each instrument (`velocityAmp` in `dsp.ts`). The native
+DynamicsCompressorNode adds its own makeup gain; the Compressor cancels it
+(`nativeMakeup`) unless Makeup is Auto. Track and master meters read
+`session.peak()`; dynamics devices report `reduction()`.
+
 ## Persistence
 
 Projects autosave to localStorage and can be saved as JSON. Adding a document

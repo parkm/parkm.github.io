@@ -1,6 +1,6 @@
 import type { Device, DrumKitDevice, Id, Pad } from "../model/types";
 import type { DeviceInstance } from "./devices";
-import { dbToGain, setParam } from "./dsp";
+import { dbToGain, setParam, velocityAmp } from "./dsp";
 import { resolveParams } from "./params";
 import { VOICES, type VoiceHandle } from "./voices";
 
@@ -70,11 +70,16 @@ export function createDrumKit(
           v.handle.choke(time);
       }
     }
+    // Voices scale by velocityGain(v) = v^1.5; feed them the velocity that
+    // gives this pad's sensitivity instead.
+    const sensitivity = (ch.pad.vel ?? 100) / 100;
     const handle = VOICES[ch.pad.voice].play(
       ctx,
       ch.gain,
       time,
-      velocity,
+      sensitivity === 1
+        ? velocity
+        : velocityAmp(velocity, sensitivity) ** (2 / 3),
       ch.params,
     );
     active.push({ handle, choke });

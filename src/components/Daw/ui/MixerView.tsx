@@ -2,6 +2,7 @@ import { updateTrackFields } from "../model/sessionOps";
 import { useDaw, useDoc } from "./context";
 import { EditableText } from "./EditableText";
 import { Knob } from "./Knob";
+import { LevelMeter } from "./Meter";
 import { TrackMixer, VOLUME } from "./TrackMixer";
 
 /** Every track's mixer strip side by side, plus master (the phone Mixer tab). */
@@ -49,6 +50,7 @@ export function MixerView() {
           onEnd={store.end}
           size={48}
         />
+        <LevelMeter trackId={null} />
       </section>
     </div>
   );

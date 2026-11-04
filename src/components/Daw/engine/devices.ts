@@ -30,6 +30,8 @@ export type DeviceInstance = {
   /** Stop: release what's sounding at `time`, silence what hasn't started. */
   cancel?: (time: number) => void;
   update: (device: Device, env: DeviceEnv) => void;
+  /** Current gain reduction in dB (≤ 0), for dynamics devices. */
+  reduction?: () => number;
   dispose: () => void;
 };
 

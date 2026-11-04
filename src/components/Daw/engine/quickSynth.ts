@@ -46,6 +46,7 @@ export const QUICK_PARAMS: ParamDef[] = describe(
     choice("mono", "Mode", ["Poly", "Mono"], 0, "Play"),
     p("glide", "Glide", 0, 500, 0, "Play", "ms"),
     p("velocity", "Vel → tone", 0, 100, 40, "Play", "%"),
+    p("velVolume", "Vel → vol", 0, 100, 50, "Play", "%"),
     p("drive", "Drive", 0, 100, 0, "Play", "%"),
     p("volume", "Volume", -24, 6, 0, "Play", "dB"),
   ],
@@ -80,6 +81,8 @@ export const QUICK_PARAMS: ParamDef[] = describe(
       "Time for the pitch to slide from the previous note to the next. 0 is off.",
     velocity:
       "How much playing harder brightens the Contour sweep. 0 makes every note the same tone.",
+    velVolume:
+      "How much playing harder makes notes louder. 0 plays every note at the same volume.",
     drive: "Saturation, for grit and warmth.",
     volume: "The synth's output level.",
   },
@@ -207,6 +210,7 @@ export function quickToSynthParams(values: Record<string, number>) {
     filterEnv: (q.contour / 100) * 36,
     keyTrack: 60,
     velFilter: q.velocity,
+    velAmp: q.velVolume,
     fAttack: q.attack,
     fDecay: q.decay,
     fSustain: 0,

@@ -29,6 +29,7 @@ import { useDaw, useDoc, useSessionState } from "./context";
 import { EditableText } from "./EditableText";
 import { onFrame } from "./frame";
 import { Knob } from "./Knob";
+import { LevelMeter } from "./Meter";
 import { TrackMixer, VOLUME } from "./TrackMixer";
 
 /**
@@ -566,6 +567,7 @@ function MasterColumn({ showMixer }: { showMixer: boolean }) {
             onBegin={store.begin}
             onEnd={store.end}
           />
+          <LevelMeter trackId={null} />
           <div className="h-5" />
         </MixerFooter>
       )}

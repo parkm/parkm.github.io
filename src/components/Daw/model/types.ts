@@ -53,6 +53,8 @@ export type Pad = {
   level: number;
   /** -1..1 */
   pan: number;
+  /** Velocity sensitivity in percent. Missing means 100. */
+  vel?: number;
   mute: boolean;
   /** Pads in the same choke group cut each other off. */
   choke: number | null;
@@ -88,7 +90,13 @@ export type FmSynthDevice = {
   params: Record<string, number>;
 };
 
-export type EffectType = "filter" | "drive" | "delay" | "reverb" | "compressor";
+export type EffectType =
+  | "eq"
+  | "filter"
+  | "drive"
+  | "delay"
+  | "reverb"
+  | "compressor";
 
 export type EffectDevice = {
   id: Id;

@@ -1,6 +1,6 @@
 import type { Device, FmSynthDevice } from "../model/types";
 import type { DeviceInstance } from "./devices";
-import { gain, ms, setParam, SILENT, velocityGain } from "./dsp";
+import { gain, ms, setParam, SILENT, velocityAmp } from "./dsp";
 import { choice, describe, resolveParams, type ParamDef } from "./params";
 
 /**
@@ -114,6 +114,8 @@ const WAVES = ["Sine", "Triangle", "Saw", "Square"] as const;
 const WAVE_TYPES: OscillatorType[] = ["sine", "triangle", "sawtooth", "square"];
 /** Modulation index (peak deviation ÷ modulator frequency) at Level 100. */
 const MAX_INDEX = 12;
+/** Carrier mix level for one carrier, before Volume. */
+const FM_MIX = 0.57;
 
 type Unit = ParamDef["unit"];
 const def = (
@@ -601,7 +603,7 @@ export function createFmSynth(
 
     const chokeNode = gain(ctx);
     chokeNode.connect(output);
-    const mix = gain(ctx, 0.16 / Math.sqrt(algorithm.carriers.length));
+    const mix = gain(ctx, FM_MIX / Math.sqrt(algorithm.carriers.length));
     mix.connect(chokeNode);
 
     const note = pitch + p.octave * 12;
@@ -633,7 +635,7 @@ export function createFmSynth(
       oscs.push(o);
 
       const env = gain(ctx, 0);
-      const peak = 1 - (k("Vel") / 100) * (1 - velocityGain(velocity));
+      const peak = velocityAmp(velocity, k("Vel") / 100);
       env.gain.setValueAtTime(0, t);
       env.gain.linearRampToValueAtTime(peak, t + ms(k("Attack")));
       env.gain.setTargetAtTime(

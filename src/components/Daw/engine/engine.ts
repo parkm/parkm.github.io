@@ -8,6 +8,8 @@ import { dbToGain, setParam } from "./dsp";
  * OfflineAudioContext to render. The same code produces both.
  *
  *   device chain → track gain → track pan → master gain → limiter → destination
+ *
+ * With `meters`, track and master levels can be read every frame (see peak).
  */
 export type Engine = {
   ctx: BaseAudioContext;
@@ -25,6 +27,14 @@ export type Engine = {
   /** Release every held (live) note on every track. */
   allNotesOff: (time: number) => void;
   cancel: (time: number) => void;
+  /**
+   * Peak level (linear) of each channel over the last ~40 ms: a track after
+   * its fader and pan, or the master (null) before the limiter. Needs
+   * `meters`. Safe to call every frame.
+   */
+  peak: (trackId: Id | null) => [number, number] | null;
+  /** A device's gain reduction in dB (≤ 0), for devices that report one. */
+  reduction: (trackId: Id, deviceId: Id) => number | null;
   dispose: () => void;
 };
 
@@ -32,15 +42,79 @@ type TrackNode = {
   track: Track;
   devices: { id: Id; instance: DeviceInstance }[];
   gain: GainNode;
-  panner: StereoPannerNode;
+  pan: Balance;
+  meter: Meter | null;
 };
+
+/**
+ * Balance pan, like a mixer's: turning towards one side lowers the other side
+ * and leaves this one alone. (StereoPannerNode instead folds the far channel
+ * into the near one, so panning a stereo sound made it up to 6 dB louder.)
+ */
+type Balance = {
+  input: AudioNode;
+  output: AudioNode;
+  set: (pan: number) => void;
+};
+
+function createBalance(ctx: BaseAudioContext, pan: number): Balance {
+  const split = ctx.createChannelSplitter(2);
+  const merge = ctx.createChannelMerger(2);
+  const left = ctx.createGain();
+  const right = ctx.createGain();
+  split.connect(left, 0).connect(merge, 0, 0);
+  split.connect(right, 1).connect(merge, 0, 1);
+  const gains = (p: number) => [
+    p > 0 ? Math.cos((p * Math.PI) / 2) : 1,
+    p < 0 ? Math.cos((-p * Math.PI) / 2) : 1,
+  ];
+  [left.gain.value, right.gain.value] = gains(pan);
+  return {
+    input: split,
+    output: merge,
+    set(p) {
+      const [l, r] = gains(p);
+      setParam(left.gain, l, ctx);
+      setParam(right.gain, r, ctx);
+    },
+  };
+}
+
+type Meter = { read: () => [number, number]; dispose: () => void };
+
+function createMeter(ctx: BaseAudioContext, source: AudioNode): Meter {
+  const split = ctx.createChannelSplitter(2);
+  const sides = [0, 1].map((c) => {
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    split.connect(analyser, c);
+    return analyser;
+  });
+  source.connect(split);
+  const buffer = new Float32Array(2048);
+  const peakOf = (a: AnalyserNode) => {
+    a.getFloatTimeDomainData(buffer);
+    let max = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      const v = Math.abs(buffer[i]);
+      if (v > max) max = v;
+    }
+    return max;
+  };
+  return {
+    read: () => [peakOf(sides[0]), peakOf(sides[1])],
+    dispose: () => {
+      source.disconnect(split);
+    },
+  };
+}
 
 const trackGain = (track: Track, anySolo: boolean) =>
   track.mute || (anySolo && !track.solo) ? 0 : dbToGain(track.volume);
 
 export function createEngine(
   ctx: BaseAudioContext,
-  destination: AudioNode = ctx.destination,
+  { destination = ctx.destination, meters = false } = {},
 ): Engine {
   const master = ctx.createGain();
   // Safety limiter: transparent below -1 dBFS.
@@ -51,6 +125,7 @@ export function createEngine(
   limiter.attack.value = 0.002;
   limiter.release.value = 0.1;
   master.connect(limiter).connect(destination);
+  const masterMeter = meters ? createMeter(ctx, master) : null;
 
   const tracks = new Map<Id, TrackNode>();
   let doc: Project | null = null;
@@ -100,18 +175,19 @@ export function createEngine(
         gain.channelCount = 2;
         gain.channelCountMode = "explicit";
         gain.channelInterpretation = "speakers";
-        const panner = ctx.createStereoPanner();
-        gain.connect(panner).connect(master);
+        const pan = createBalance(ctx, track.pan);
+        gain.connect(pan.input);
+        pan.output.connect(master);
         gain.gain.value = trackGain(track, anySolo);
-        panner.pan.value = track.pan;
-        node = { track, devices: [], gain, panner };
+        const meter = meters ? createMeter(ctx, pan.output) : null;
+        node = { track, devices: [], gain, pan, meter };
         tracks.set(track.id, node);
         syncDevices(node, track, env);
         continue;
       }
       if (node.track !== track || anySolo !== prevAnySolo) {
         setParam(node.gain.gain, trackGain(track, anySolo), ctx);
-        setParam(node.panner.pan, track.pan, ctx);
+        node.pan.set(track.pan);
       }
       if (node.track.devices !== track.devices || tempoChanged) {
         syncDevices(node, track, env);
@@ -121,7 +197,8 @@ export function createEngine(
     for (const [id, node] of tracks) {
       if (seen.has(id)) continue;
       node.devices.forEach((d) => d.instance.dispose());
-      node.panner.disconnect();
+      node.meter?.dispose();
+      node.pan.output.disconnect();
       tracks.delete(id);
     }
     doc = next;
@@ -147,9 +224,22 @@ export function createEngine(
         for (const d of node.devices) d.instance.cancel?.(time);
       }
     },
+    peak(trackId) {
+      const meter = trackId === null ? masterMeter : tracks.get(trackId)?.meter;
+      return meter ? meter.read() : null;
+    },
+    reduction(trackId, deviceId) {
+      const device = tracks
+        .get(trackId)
+        ?.devices.find((d) => d.id === deviceId)?.instance;
+      return device?.reduction?.() ?? null;
+    },
     dispose() {
-      for (const node of tracks.values())
+      for (const node of tracks.values()) {
         node.devices.forEach((d) => d.instance.dispose());
+        node.meter?.dispose();
+      }
+      masterMeter?.dispose();
       tracks.clear();
       limiter.disconnect();
     },

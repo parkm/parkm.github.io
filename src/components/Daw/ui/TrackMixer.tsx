@@ -4,10 +4,11 @@ import { updateTrackFields } from "../model/sessionOps";
 import type { Track } from "../model/types";
 import { useDaw, useSessionState } from "./context";
 import { Knob } from "./Knob";
+import { LevelMeter } from "./Meter";
 
 /**
- * A track's mixer strip: stop, volume, pan, mute (the numbered track
- * activator) and solo. Shown under each session column on wide screens and in
+ * A track's mixer strip: stop, volume, pan, level meter, mute (the numbered
+ * track activator) and solo. Shown under each session column on wide screens and in
  * the Mixer tab on phones.
  */
 
@@ -87,6 +88,7 @@ export function TrackMixer({
           size={knob}
         />
       </div>
+      <LevelMeter trackId={track.id} />
       <div className="flex w-full gap-1">
         <button
           type="button"

@@ -23,6 +23,17 @@ export const PAD_PAN: ParamDef = {
   description: "Stereo position: -1 is hard left, 0 centre, 1 hard right.",
 };
 
+export const PAD_VEL: ParamDef = {
+  key: "vel",
+  label: "Vel",
+  min: 0,
+  max: 100,
+  default: 100,
+  unit: "%",
+  description:
+    "How much velocity changes this pad's volume. 0 plays every hit at full level; lower it for drums that should hit the same every time.",
+};
+
 export const PAD_NOTE: ParamDef = {
   key: "note",
   label: "Note",

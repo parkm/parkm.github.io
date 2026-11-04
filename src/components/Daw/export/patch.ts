@@ -1,6 +1,12 @@
 import { deviceParams } from "../engine/devices";
 import { EFFECTS } from "../engine/effects";
-import { PAD_CHOKE, PAD_LEVEL, PAD_NOTE, PAD_PAN } from "../engine/padParams";
+import {
+  PAD_CHOKE,
+  PAD_LEVEL,
+  PAD_NOTE,
+  PAD_PAN,
+  PAD_VEL,
+} from "../engine/padParams";
 import { constrainParam, type ParamDef } from "../engine/params";
 import { VOICES } from "../engine/voices";
 import { newId } from "../model/ops";
@@ -126,6 +132,7 @@ export function writePatch(device: Device): string {
       out.push(...write(PAD_NOTE, pad.pitch));
       out.push(...write(PAD_LEVEL, pad.level));
       out.push(...write(PAD_PAN, pad.pan));
+      out.push(...write(PAD_VEL, pad.vel ?? 100));
       out.push(...write(PAD_CHOKE, pad.choke ?? 0));
       out.push(...write(PAD_MUTE, pad.mute ? 1 : 0));
       for (const def of VOICES[pad.voice].params)
@@ -315,7 +322,15 @@ function readPad(s: Section, old: Pad | null, problems: string[]): Pad {
     return (e && readValue(def, e, problems)) ?? def.default;
   };
   const choke = read(PAD_CHOKE);
-  const own = new Set(["voice", "note", "level", "pan", "choke", "mute"]);
+  const own = new Set([
+    "voice",
+    "note",
+    "level",
+    "pan",
+    "vel",
+    "choke",
+    "mute",
+  ]);
   return {
     id: old?.id ?? newId(),
     name: s.name || "Pad",
@@ -328,6 +343,7 @@ function readPad(s: Section, old: Pad | null, problems: string[]): Pad {
     ),
     level: read(PAD_LEVEL),
     pan: read(PAD_PAN),
+    vel: read(PAD_VEL),
     mute: read(PAD_MUTE) === 1,
     choke: choke > 0 ? choke : null,
   };

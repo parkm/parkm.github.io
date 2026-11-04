@@ -9,6 +9,7 @@ import {
   mulberry32,
   setParam,
 } from "./dsp";
+import { eqFx } from "./eq";
 import { choice, describe, resolveParams, type ParamDef } from "./params";
 
 /**
@@ -18,10 +19,12 @@ import { choice, describe, resolveParams, type ParamDef } from "./params";
 
 type Built = {
   update: (p: Record<string, number>, env: DeviceEnv) => void;
+  /** Gain reduction in dB (≤ 0), for dynamics effects. */
+  reduction?: () => number;
   dispose?: () => void;
 };
 
-type EffectDef = {
+export type EffectDef = {
   label: string;
   params: ParamDef[];
   /** Has a dry/wet "mix" param (time-based effects). Others are fully wet. */
@@ -283,6 +286,49 @@ const reverbFx: EffectDef = {
   },
 };
 
+/**
+ * The makeup gain DynamicsCompressorNode adds on its own, as a linear factor.
+ * The spec has it boost by (1 / curve(0 dBFS))^0.6, so lowering the threshold
+ * or raising the ratio also turns the sound up. This is the static curve from
+ * the spec's reference implementation (Chromium, WebKit and Gecko share it).
+ */
+export function nativeMakeup(
+  thresholdDb: number,
+  kneeDb: number,
+  ratio: number,
+) {
+  const toDb = (x: number) => 20 * Math.log10(x);
+  const toLin = (db: number) => 10 ** (db / 20);
+  const linearThreshold = toLin(thresholdDb);
+  const kneeCurve = (x: number, k: number) =>
+    x < linearThreshold
+      ? x
+      : linearThreshold + (1 - Math.exp(-k * (x - linearThreshold))) / k;
+  const slopeAt = (x: number, k: number) => {
+    if (x < linearThreshold) return 1;
+    const x2 = x * 1.001;
+    return (
+      (toDb(kneeCurve(x2, k)) - toDb(kneeCurve(x, k))) / (toDb(x2) - toDb(x))
+    );
+  };
+  // Find the knee sharpness whose slope at the knee's end matches the ratio.
+  const kneeEndDb = thresholdDb + kneeDb;
+  const kneeEnd = toLin(kneeEndDb);
+  let [minK, maxK, k] = [0.1, 10000, 5];
+  for (let i = 0; i < 15; i++) {
+    if (slopeAt(kneeEnd, k) < 1 / ratio) maxK = k;
+    else minK = k;
+    k = Math.sqrt(minK * maxK);
+  }
+  const fullRange =
+    1 < kneeEnd
+      ? kneeCurve(1, k)
+      : toLin(toDb(kneeCurve(kneeEnd, k)) + (0 - kneeEndDb) / ratio);
+  return (1 / fullRange) ** 0.6;
+}
+
+const COMP_KNEE = 6;
+
 const compressorFx: EffectDef = {
   label: "Compressor",
   params: describe(
@@ -291,8 +337,8 @@ const compressorFx: EffectDef = {
       p("ratio", "Ratio", 1, 20, 4),
       p("attack", "Attack", 0.1, 100, 10, "ms", "exp"),
       p("release", "Release", 10, 1000, 150, "ms", "exp"),
-      // The native compressor already applies makeup gain; this is a plain trim.
-      p("output", "Output", -24, 12, 0, "dB"),
+      choice("makeup", "Makeup", ["Off", "Auto"]),
+      p("output", "Output", -24, 24, 0, "dB"),
     ],
     {
       threshold:
@@ -302,12 +348,15 @@ const compressorFx: EffectDef = {
       attack:
         "How fast it reacts. Fast tames peaks; slower lets the initial hit punch through.",
       release: "How fast it lets go after the level drops.",
-      output: "Level after compression.",
+      makeup:
+        "Auto turns the sound back up by an estimate of what compression took away, so harder settings also sound louder. Off leaves the level to Output, which makes it easier to judge what the compressor is doing.",
+      output:
+        "Level after compression. Use it to match the level with the compressor on and off.",
     },
   ),
   build(ctx, input, output) {
     const comp = ctx.createDynamicsCompressor();
-    comp.knee.value = 6;
+    comp.knee.value = COMP_KNEE;
     const makeup = gain(ctx);
     input.connect(comp).connect(makeup).connect(output);
     return {
@@ -316,13 +365,21 @@ const compressorFx: EffectDef = {
         setParam(comp.ratio, v.ratio, ctx);
         setParam(comp.attack, ms(v.attack), ctx);
         setParam(comp.release, ms(v.release), ctx);
-        setParam(makeup.gain, dbToGain(v.output), ctx);
+        // Undo the node's built-in makeup unless Auto asks for it.
+        const native = nativeMakeup(v.threshold, COMP_KNEE, v.ratio);
+        setParam(
+          makeup.gain,
+          dbToGain(v.output) / (v.makeup === 1 ? 1 : native),
+          ctx,
+        );
       },
+      reduction: () => comp.reduction,
     };
   },
 };
 
 export const EFFECTS: Record<EffectType, EffectDef> = {
+  eq: eqFx,
   filter: filterFx,
   drive: driveFx,
   delay: delayFx,
@@ -369,6 +426,7 @@ export function createEffect(
     input,
     output,
     update,
+    reduction: built.reduction,
     dispose() {
       built.dispose?.();
       output.disconnect();
