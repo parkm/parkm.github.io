@@ -22,6 +22,9 @@ interface ActiveNote {
   stop: () => void;
 }
 
+// Volume to use once the audio graph exists (set before first note plays)
+let desiredVolume = 0.3;
+
 // Track active notes
 const activeNotes = new Map<string, ActiveNote>();
 
@@ -42,7 +45,7 @@ export function initAudio(): { context: AudioContext; mainGain: GainNode } {
 
     // Create main gain node
     mainGainNode = audioContext.createGain();
-    mainGainNode.gain.value = 0.3;
+    mainGainNode.gain.value = desiredVolume;
     mainGainNode.connect(limiter);
 
     // Create simple reverb that won't cause filter instability
@@ -75,7 +78,7 @@ export function initAudio(): { context: AudioContext; mainGain: GainNode } {
   // If audio context exists but main gain doesn't, create it
   if (audioContext && !mainGainNode) {
     mainGainNode = audioContext.createGain();
-    mainGainNode.gain.value = 0.3;
+    mainGainNode.gain.value = desiredVolume;
     if (limiter) {
       mainGainNode.connect(limiter);
     } else {
@@ -505,10 +508,10 @@ export function stopNote(noteId: string): void {
  * Set the main volume safely
  */
 export function setVolume(volume: number): void {
-  if (!mainGainNode || !audioContext) return;
-
   // Limit volume to safe range
   const safeVolume = Math.max(0, Math.min(0.8, volume));
+  desiredVolume = safeVolume;
+  if (!mainGainNode || !audioContext) return;
 
   // Use linear ramp for stability
   const now = audioContext.currentTime;

@@ -1,87 +1,82 @@
-import React, { useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
+import { clamp } from "@/lib/utils";
 import { Key } from "./Key";
 
+const WHITES = ["C", "D", "E", "F", "G", "A", "B"];
+const BLACKS = [
+  { note: "C#", left: 1 },
+  { note: "D#", left: 2 },
+  { note: "F#", left: 4 },
+  { note: "G#", left: 5 },
+  { note: "A#", left: 6 },
+];
+
+/** Below this a white key is too small to hit, so scroll instead. */
+const MIN_WHITE_KEY_WIDTH = 10;
+const MAX_WHITE_KEY_WIDTH = 40;
+
+/** A piano keyboard that stretches to fill the width of its container. */
 export function PianoKeyboard({
   octaves,
   startOctave,
   markedKeys,
-  onKeyClick,
-  scale = 1.0,
+  isSounding,
+  onKeyToggle,
 }: {
   octaves: number;
   startOctave: number;
   markedKeys: string[];
-  onKeyClick: (key: string) => void;
-  scale?: number;
+  isSounding: boolean;
+  onKeyToggle: (key: string) => void;
 }) {
-  const BASE_WHITE_KEY_WIDTH = 24;
-  const WHITE_KEY_WIDTH = BASE_WHITE_KEY_WIDTH;
-  const WHITE_KEY_HEIGHT = WHITE_KEY_WIDTH * 6.5 * scale;
-  const BLACK_KEY_WIDTH = WHITE_KEY_WIDTH * 0.58;
-  const BLACK_KEY_HEIGHT = WHITE_KEY_HEIGHT * 0.63;
-  const totalWidth = octaves * 7 * WHITE_KEY_WIDTH + 16;
+  const ref = useRef<HTMLDivElement>(null);
+  const [availableWidth, setAvailableWidth] = useState(0);
 
-  const keyboardStyle = {
-    height: `${WHITE_KEY_HEIGHT}px`,
-    width: `${totalWidth}px`,
-    position: "relative" as const,
-    display: "flex" as const,
-    border: "1px solid #777",
-    borderRadius: "0 0 6px 6px",
-    overflow: "visible" as const,
-    backgroundColor: "#272727",
-    padding: "4px 4px 8px 4px",
-    boxShadow:
-      "0 2px 8px rgba(0,0,0,0.3), inset 0 -1px 0 rgba(255,255,255,0.6)",
-  };
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setAvailableWidth(el.clientWidth - 2);
+    const observer = new ResizeObserver(([entry]) =>
+      setAvailableWidth(entry.contentRect.width),
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
-  const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
+  const whiteCount = octaves * 7;
+  const whiteWidth = clamp(
+    availableWidth / whiteCount,
+    MIN_WHITE_KEY_WIDTH,
+    MAX_WHITE_KEY_WIDTH,
+  );
+  const whiteHeight = Math.round(clamp(whiteWidth * 5, 72, 170));
+  const blackWidth = whiteWidth * 0.62;
+  const blackHeight = Math.round(whiteHeight * 0.62);
+  const totalWidth = whiteCount * whiteWidth;
 
-  const onKeyDown = (note: string) =>
-    setActiveKeys((prev) => new Set(prev).add(note));
-  const onKeyUp = (note: string) =>
-    setActiveKeys((prev) => {
-      const next = new Set(prev);
-      next.delete(note);
-      return next;
-    });
-
+  const marked = new Set(markedKeys);
   const keys: React.ReactNode[] = [];
-
   for (let o = 0; o < octaves; o++) {
     const octave = startOctave + o;
-    const offset = o * (WHITE_KEY_WIDTH * 7);
-
-    const whites = ["C", "D", "E", "F", "G", "A", "B"];
-    const blacks = [
-      { note: "C#", left: 1 },
-      { note: "D#", left: 2 },
-      { note: "F#", left: 4 },
-      { note: "G#", left: 5 },
-      { note: "A#", left: 6 },
-    ];
-
-    whites.forEach((n, i) => {
-      const id = `${n}${octave}`;
+    const offset = o * 7 * whiteWidth;
+    WHITES.forEach((note, i) => {
+      const id = `${note}${octave}`;
       keys.push(
         <Key
           key={id}
-          note={n}
+          note={note}
           octave={octave}
           type="white"
-          width={WHITE_KEY_WIDTH}
-          height={WHITE_KEY_HEIGHT}
-          left={offset + i * WHITE_KEY_WIDTH}
-          isActive={activeKeys.has(id)}
-          isMarked={markedKeys.includes(id)}
-          onKeyDown={() => onKeyDown(id)}
-          onKeyUp={() => onKeyUp(id)}
-          onClick={() => onKeyClick(id)}
+          width={whiteWidth}
+          height={whiteHeight}
+          left={offset + i * whiteWidth}
+          isMarked={marked.has(id)}
+          isSounding={isSounding}
+          onToggle={() => onKeyToggle(id)}
         />,
       );
     });
-
-    blacks.forEach(({ note, left }) => {
+    BLACKS.forEach(({ note, left }) => {
       const id = `${note}${octave}`;
       keys.push(
         <Key
@@ -89,22 +84,25 @@ export function PianoKeyboard({
           note={note}
           octave={octave}
           type="black"
-          width={BLACK_KEY_WIDTH}
-          height={BLACK_KEY_HEIGHT}
-          left={offset + left * WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2}
-          isActive={activeKeys.has(id)}
-          isMarked={markedKeys.includes(id)}
-          onKeyDown={() => onKeyDown(id)}
-          onKeyUp={() => onKeyUp(id)}
-          onClick={() => onKeyClick(id)}
+          width={blackWidth}
+          height={blackHeight}
+          left={offset + left * whiteWidth - blackWidth / 2}
+          isMarked={marked.has(id)}
+          isSounding={isSounding}
+          onToggle={() => onKeyToggle(id)}
         />,
       );
     });
   }
 
   return (
-    <div style={keyboardStyle} className="piano-keyboard">
-      {keys}
+    <div ref={ref} className="w-full overflow-x-auto p-px">
+      <div
+        className="relative z-10 mx-auto overflow-hidden rounded-[4px] bg-white ring-1 ring-zinc-400 dark:ring-zinc-600"
+        style={{ width: totalWidth, height: whiteHeight }}
+      >
+        {availableWidth > 0 && keys}
+      </div>
     </div>
   );
 }

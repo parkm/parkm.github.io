@@ -12,3 +12,4 @@ export * from "./Select";
 export * from "./Separator";
 export * from "./Slider";
 export * from "./Textarea";
+export * from "./Popover";
