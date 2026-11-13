@@ -1,10 +1,10 @@
 # Parker Miller
 
-I'm a frontend developer passionate about creating robust web applications with codebases that emphasize readability, maintainability, and extensibility. I also like to dabble in music production and game development.
+I'm a software engineer. I've been building desktop and web applications professionally since 2017.
 
 [GitHub](https://github.com/parkm) · [LinkedIn](https://linkedin.com/in/parker-miller-381ab3196/)
 
-## Work
+## Career
 
 ### Canopy
 
@@ -14,7 +14,7 @@ Canopy makes cloud practice management software used by more than 4,000 accounti
 
 Jan 2024 – Present
 
-I'm on the platform team, working across Canopy's 50+ React applications on build tooling, shared libraries, coding standards and the component library. Projects include moving the applications to native ES modules, standardizing TypeScript and linting across all repositories, and building the shared data-fetching layer with TanStack Query.
+I'm on the platform team, working across Canopy's 50+ React applications on build tooling, shared packages, the component library, and standards for how we write code and use LLMs.
 
 #### Senior Frontend Engineer
 
