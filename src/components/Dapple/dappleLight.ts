@@ -4,8 +4,8 @@ void main() {
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
 }`;
 
-// Leaf shadows: two layers of swaying leaves (the farther one softer) plus
-// branches, output as a light/shade color for the page to blend with.
+// Leaf shadows: two layers of swaying leaves (the farther one softer),
+// output as a light/shade color for the page to blend with.
 const FRAGMENT = /* glsl */ `#version 300 es
 precision highp float;
 out vec4 outColor;
@@ -76,12 +76,6 @@ float leaves(vec2 p, float cell, float softness, float seed, float t) {
   return cover;
 }
 
-float branch(vec2 p, float slope, float offset, float width, float t) {
-  float y = p.x * slope + offset + sin(p.x * 0.004 + t * 0.2) * 30.0;
-  float d = abs(p.y - y) / sqrt(1.0 + slope * slope);
-  return 1.0 - smoothstep(width * 0.5, width * 2.4, d);
-}
-
 void main() {
   vec2 p = gl_FragCoord.xy * uCssPerPixel;
   p.y = uRes.y * uCssPerPixel - p.y;
@@ -94,9 +88,8 @@ void main() {
 
   float near = leaves(sp + gust, 92.0, 0.32, 0.0, t);
   float far = leaves(sp * 1.0 + gust * 0.6 + 400.0, 58.0, 0.65, 11.0, t * 0.8);
-  float wood = max(branch(sp + gust * 0.4, -0.32, 260.0, 7.0, t), branch(sp + gust * 0.3, 0.18, 640.0, 4.0, t) * 0.8);
 
-  float shade = 1.0 - (1.0 - near * 0.9) * (1.0 - far * 0.6) * (1.0 - wood * 0.85);
+  float shade = 1.0 - (1.0 - near * 0.9) * (1.0 - far * 0.6);
   shade = smoothstep(0.0, 1.0, shade);
 
   // Fade the shadow out away from the top-right corner.
