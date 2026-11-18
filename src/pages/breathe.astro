@@ -88,7 +88,9 @@ const DEFAULT_DURATION = 4;
 </Layout>
 
 <style>
-  :global(html) {
+  /* The site map imports every page module, which carries these styles there
+     too, so the page-level rules only match when this page is present. */
+  :global(html:has(.breathe)) {
     --breathe-sky: oklch(0.96 0.025 225);
     --breathe-deep: oklch(0.86 0.06 245);
     --breathe-ink: oklch(0.3 0.07 255);
@@ -102,7 +104,7 @@ const DEFAULT_DURATION = 4;
     -webkit-font-smoothing: antialiased;
   }
 
-  :global(html.dark) {
+  :global(html.dark:has(.breathe)) {
     --breathe-sky: oklch(0.26 0.05 250);
     --breathe-deep: oklch(0.16 0.04 262);
     --breathe-ink: oklch(0.93 0.025 230);
@@ -112,7 +114,7 @@ const DEFAULT_DURATION = 4;
     --breathe-glow: oklch(0.5 0.09 240);
   }
 
-  :global(body) {
+  :global(html:has(.breathe) body) {
     min-height: 100svh;
     background: linear-gradient(var(--breathe-sky), var(--breathe-deep));
     color: var(--breathe-ink);

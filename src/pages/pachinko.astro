@@ -54,8 +54,10 @@ import Layout from "../layouts/Layout.astro";
 </Layout>
 
 <style is:global>
-  html,
-  body {
+  /* The site map imports every page module to list it, which pulls this
+     stylesheet in there too, so page-level rules must only match this page. */
+  html:has(#pk-root),
+  html:has(#pk-root) body {
     height: 100%;
     overflow: hidden;
     overscroll-behavior: none;

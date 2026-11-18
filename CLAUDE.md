@@ -48,6 +48,8 @@ Personal portfolio/creative experimentation site at [parkermiller.net](https://p
 
 **Pages** (`src/pages/`) map directly to routes. Interactive pages use React components loaded as Astro islands with `client:*` directives.
 
+**Site map and page styles:** `/map` builds its list in `src/lib/pages.ts` by eagerly importing every page module (all of `src/pages/**/*.astro` except `index.astro` and `map.astro`) to read its `title`, `description`, `icon` and `category` exports. Importing a page also bundles that page's CSS into the map page. So any page rule that targets `html`, `body` or other shared elements (`<style is:global>` or `:global(...)`) must be scoped to its own page, e.g. `html:has(#my-page-root)`, or it will restyle the map.
+
 **Components** (`src/components/`) mix `.astro` and `.tsx` files. `src/components/ui/` holds Radix UI wrappers.
 
 ## Deployment
