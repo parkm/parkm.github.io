@@ -1,0 +1,120 @@
+---
+export const title = "Golf";
+export const description = "Endless procedurally generated golf";
+export const icon = LandPlot;
+export const category = "Entertainment";
+
+import { LandPlot } from "lucide-react";
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title={title} description={description} disableZoom={true} themeColor="#bfe0e2">
+  <div id="gf-root" class="gf-root">
+    <canvas id="gf-canvas" class="gf-canvas"></canvas>
+    <header class="gf-hud">
+      <div class="gf-status" role="status">
+        <span id="gf-hole" class="gf-hole"></span>
+        <span id="gf-strokes"></span>
+      </div>
+      <div class="gf-actions">
+        <button id="gf-mute" type="button" class="gf-btn"></button>
+        <button id="gf-restart" type="button" class="gf-btn">Restart</button>
+      </div>
+    </header>
+  </div>
+
+  <script>
+    import { startGolf } from "@/components/Golf/game";
+
+    startGolf(document.getElementById("gf-root")!);
+  </script>
+</Layout>
+
+<style is:global>
+  /* The site map imports every page module to list it, which pulls this
+     stylesheet in there too, so page-level rules must only match this page. */
+  html:has(#gf-root),
+  html:has(#gf-root) body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    background: #2c6449;
+  }
+
+  .gf-root {
+    --gf-ink: #14301f;
+    position: fixed;
+    inset: 0;
+    color: var(--gf-ink);
+    font-family: system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .gf-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  .gf-hud {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    padding-top: max(0.6rem, env(safe-area-inset-top));
+    padding-right: max(0.9rem, env(safe-area-inset-right));
+    padding-left: max(0.9rem, env(safe-area-inset-left));
+    pointer-events: none;
+  }
+
+  .gf-status {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .gf-hole {
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .gf-actions {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .gf-btn {
+    min-height: 2.25rem;
+    padding: 0 0.6rem;
+    border-radius: 0.4rem;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0.7;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+
+  .gf-btn:hover {
+    opacity: 1;
+  }
+
+  .gf-btn:focus-visible {
+    outline: 2px solid var(--gf-ink);
+    outline-offset: 1px;
+    opacity: 1;
+  }
+</style>
